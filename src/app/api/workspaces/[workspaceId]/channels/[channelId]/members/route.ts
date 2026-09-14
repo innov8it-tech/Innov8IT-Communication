@@ -44,27 +44,11 @@ export async function PATCH(
     const allowedMemberIds = new Set(workspaceMembers.map((member) => member.userId));
     const validMemberIds = requestedMemberIds.filter((id) => allowedMemberIds.has(id));
     if (!validMemberIds.includes(userId)) validMemberIds.push(userId);
-    const existingMemberIds = Array.isArray(channel.memberIds)
-      ? channel.memberIds.filter((id): id is string => typeof id === 'string')
-      : [];
-    const addedMemberIds = validMemberIds.filter((id) => !existingMemberIds.includes(id) && id !== userId);
 
     const updatedChannel = await prisma.channel.update({
       where: { id: channelId },
       data: { memberIds: validMemberIds },
     });
-    if (addedMemberIds.length > 0) {
-      await prisma.activity.createMany({
-        data: addedMemberIds.map((memberId) => ({
-          userId: memberId,
-          workspaceId,
-          actorId: userId,
-          channelId,
-          type: 'channel_added',
-          message: `You were added to #${channel.name}.`,
-        })),
-      });
-    }
     return NextResponse.json({ channel: updatedChannel }, { status: 200 });
   } catch (error) {
     console.error('Error updating channel members:', error);

@@ -83,7 +83,6 @@ const Channel = ({ params }: ChannelProps) => {
         if (response.ok) {
           setWorkspace(result.workspace);
           setOtherWorkspaces(result.otherWorkspaces);
-          setChannel(result.workspace.channels.find((item: { id: string }) => item.id === channelId) || result.workspace.channels[0]);
           localStorage.setItem(
             'activitySession',
             JSON.stringify({ workspaceId, channelId })
@@ -104,8 +103,7 @@ const Channel = ({ params }: ChannelProps) => {
         const currentMembers = Array.isArray(channel.memberIds)
           ? channel.memberIds.filter((id): id is string => typeof id === 'string')
           : workspace.memberships.map((m) => m.userId);
-        const activeChannelId = channel.id;
-        const chatChannel = chatClient.channel('messaging', activeChannelId, {
+        const chatChannel = chatClient.channel('messaging', channelId, {
           members: currentMembers,
           name: channel.name,
           description: channel.description,
@@ -114,10 +112,10 @@ const Channel = ({ params }: ChannelProps) => {
 
         await chatChannel.watch();
 
-        if (currentCall?.id === activeChannelId) {
+        if (currentCall?.id === channelId) {
           setChannelCall(currentCall);
         } else {
-          const channelCall = videoClient?.call('default', activeChannelId);
+          const channelCall = videoClient?.call('default', channelId);
           setChannelCall(channelCall);
         }
 
@@ -125,7 +123,7 @@ const Channel = ({ params }: ChannelProps) => {
         setChatChannel(chatChannel);
       } catch (error) {
         console.error('Error loading channel:', error);
-        setChannelError('This channel could not be connected. Please refresh and try again.');
+        setChannelError('This channel could not be connected. Check your Stream configuration and try again.');
       } finally {
         setChannelLoading(false);
       }
@@ -263,8 +261,7 @@ const Channel = ({ params }: ChannelProps) => {
       {/* Chat */}
       <div className="relative flex flex-col w-full h-full flex-1 overflow-hidden ">
         {/* Body */}
-          <div className="relative flex-1">
-          <div id="message-input" className="absolute inset-x-0 bottom-0 z-10 px-5 pb-4" />
+        <div className="relative flex-1">
           <div className="absolute -top-2 bottom-0 flex w-full overflow-hidden">
             <div
               style={{
@@ -286,7 +283,10 @@ const Channel = ({ params }: ChannelProps) => {
           </div>
         </div>
         {/* Footer */}
-        <div className="relative h-6 shrink-0" />
+        <div className="relative max-h-[calc(100%-36px)] flex flex-col -mt-2 px-5">
+          <div id="message-input" className="flex-1"></div>
+          <div className="w-full flex items-center h-6 pl-3 pr-2"></div>
+        </div>
       </div>
       {!channelLoading && chatChannel && channel && (
         <ChannelMembersModal

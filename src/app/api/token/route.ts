@@ -4,13 +4,6 @@ const API_KEY = process.env.NEXT_PUBLIC_STREAM_API_KEY!;
 const SECRET = process.env.STREAM_API_SECRET!;
 
 export async function POST(request: Request) {
-  if (!API_KEY || !SECRET) {
-    return Response.json(
-      { error: 'Stream credentials are not configured on the server.' },
-      { status: 503 }
-    );
-  }
-
   const client = new StreamClient(API_KEY, SECRET);
 
   const body = await request.json();

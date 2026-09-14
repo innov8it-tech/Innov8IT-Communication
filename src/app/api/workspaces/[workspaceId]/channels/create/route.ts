@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
-import { StreamChat } from 'stream-chat';
 
 import { generateChannelId } from '@/lib/utils';
 import prisma from '@/lib/prisma';
@@ -30,10 +29,9 @@ export async function POST(
   try {
     const user = await currentUser();
     const userId = user!.id;
-    const userEmail = user?.primaryEmailAddress?.emailAddress || userId;
 
     const body = await request.json();
-    const { name, description, memberIds, isPublic = true } = body;
+    const { name, description, memberIds, isPublic } = body;
 
     if (!name || typeof name !== 'string' || name.trim() === '') {
       return NextResponse.json(
@@ -108,37 +106,6 @@ export async function POST(
         workspaceId,
       },
     });
-
-    // Create the Stream channel immediately so every accepted workspace
-    // member can see it as soon as the owner saves it.
-    if (process.env.NEXT_PUBLIC_STREAM_API_KEY && process.env.STREAM_API_SECRET) {
-      try {
-        const streamClient = StreamChat.getInstance(
-          process.env.NEXT_PUBLIC_STREAM_API_KEY,
-          process.env.STREAM_API_SECRET
-        );
-        await streamClient.upsertUsers(
-          workspaceMembers.map((member) => ({
-            id: member.userId,
-            name: member.userId === userId ? userEmail : member.userId,
-          }))
-        );
-        const streamChannel = streamClient.channel('messaging', newChannel.id, {
-          members: validMemberIds,
-          name: newChannel.name,
-          description: newChannel.description || undefined,
-          workspaceId,
-          created_by_id: userId,
-        });
-        try {
-          await streamChannel.create();
-        } catch {
-          await streamChannel.addMembers(validMemberIds);
-        }
-      } catch (streamError) {
-        console.error(`Unable to create Stream channel ${newChannel.id}:`, streamError);
-      }
-    }
 
     return NextResponse.json(
       {
