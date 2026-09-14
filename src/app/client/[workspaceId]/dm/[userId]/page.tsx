@@ -1,7 +1,6 @@
 'use client';
 
-import { useContext, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { Channel as StreamChannel } from 'stream-chat';
 import { DefaultStreamChatGenerics } from 'stream-chat-react';
@@ -14,11 +13,9 @@ interface DirectMessagePageProps {
 }
 
 const DirectMessagePage = ({ params }: DirectMessagePageProps) => {
-  const router = useRouter();
   const { user } = useUser();
   const {
     chatClient,
-    workspace,
     setWorkspace,
     setOtherWorkspaces,
     loading,
@@ -26,26 +23,33 @@ const DirectMessagePage = ({ params }: DirectMessagePageProps) => {
   } = useContext(AppContext);
   const [directChannel, setDirectChannel] = useState<StreamChannel<DefaultStreamChatGenerics>>();
   const [recipientEmail, setRecipientEmail] = useState('teammate');
+  const [directMessageError, setDirectMessageError] = useState('');
+  const setupKeyRef = useRef('');
 
   useEffect(() => {
     if (!user || !chatClient) return;
+    const setupKey = `${params.workspaceId}:${params.userId}`;
+    if (setupKeyRef.current === setupKey) return;
+    setupKeyRef.current = setupKey;
     let cancelled = false;
 
     const setupDirectMessage = async () => {
       try {
-        let currentWorkspace = workspace;
-        if (!currentWorkspace?.id) {
-          const response = await fetch(`/api/workspaces/${params.workspaceId}`);
-          const result = await response.json();
-          if (!response.ok) throw new Error(result.error || 'Unable to load workspace');
-          currentWorkspace = result.workspace;
-          setWorkspace(result.workspace);
-          setOtherWorkspaces(result.otherWorkspaces);
+        // This also provisions the accepted members in Stream before a new
+        // direct channel is created.
+        const response = await fetch(`/api/workspaces/${params.workspaceId}`);
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Unable to load workspace');
+        const currentWorkspace = result.workspace;
+        setWorkspace(result.workspace);
+        setOtherWorkspaces(result.otherWorkspaces);
+
+        const recipient = currentWorkspace.memberships.find((member: { userId: string; email: string }) => member.userId === params.userId);
+        if (!recipient) {
+          throw new Error('This teammate is no longer a member of the workspace.');
         }
 
-        const recipient = currentWorkspace.memberships.find((member) => member.userId === params.userId);
-        if (!recipient) {
-          router.push(`/client/${params.workspaceId}`);
+        if (cancelled) {
           return;
         }
 
@@ -57,18 +61,23 @@ const DirectMessagePage = ({ params }: DirectMessagePageProps) => {
           isDirectMessage: true,
         });
         await channel.watch();
-        await channel.update({
+        // Label old DM channels when possible, but do not block opening the
+        // conversation if Stream permissions do not allow a metadata update.
+        channel.update({
           name: recipient.email,
           workspaceId: params.workspaceId,
           isDirectMessage: true,
-        });
+        }).catch((error) => console.warn('Unable to label direct message channel:', error));
         if (cancelled) return;
         setRecipientEmail(recipient.email);
         setDirectChannel(channel);
+        setDirectMessageError('');
         setLoading(false);
       } catch (error) {
         console.error('Error opening direct message:', error);
-        router.push(`/client/${params.workspaceId}`);
+        setupKeyRef.current = '';
+        setDirectMessageError('Unable to open this direct message. Please refresh and try again.');
+        setLoading(false);
       }
     };
 
@@ -76,9 +85,28 @@ const DirectMessagePage = ({ params }: DirectMessagePageProps) => {
     return () => {
       cancelled = true;
     };
-  }, [chatClient, params.userId, params.workspaceId, router, setLoading, setOtherWorkspaces, setWorkspace, user, workspace]);
+  }, [chatClient, params.userId, params.workspaceId, setLoading, setOtherWorkspaces, setWorkspace, user]);
 
-  if (loading || !directChannel) return null;
+  if (loading) return null;
+
+  if (directMessageError) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-[#1a1d21] p-6 text-center text-sm text-[#e2a025]">
+        <div>
+          <p>{directMessageError}</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-4 rounded-lg bg-[#034697] px-4 py-2 font-semibold text-white hover:bg-[#023775]"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!directChannel) return null;
 
   return (
     <div className="channel flex h-full w-full flex-col overflow-hidden bg-[#1a1d21] font-lato text-channel-gray">
