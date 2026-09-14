@@ -31,7 +31,7 @@ export async function POST(
     const userId = user!.id;
 
     const body = await request.json();
-    const { name, description, memberIds } = body;
+    const { name, description, memberIds, isPublic } = body;
 
     if (!name || typeof name !== 'string' || name.trim() === '') {
       return NextResponse.json(
@@ -49,7 +49,9 @@ export async function POST(
       select: { userId: true },
     });
     const allowedMemberIds = new Set(workspaceMembers.map((member) => member.userId));
-    const validMemberIds = requestedMemberIds.filter((id) => allowedMemberIds.has(id));
+    const validMemberIds = isPublic
+      ? workspaceMembers.map((member) => member.userId)
+      : requestedMemberIds.filter((id) => allowedMemberIds.has(id));
     if (!validMemberIds.includes(userId)) validMemberIds.push(userId);
 
     // Check if the user is a member of the workspace

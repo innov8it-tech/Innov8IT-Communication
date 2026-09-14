@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useClerk } from '@clerk/nextjs';
 
 import DashboardInviteModal from '@/components/DashboardInviteModal';
+import Modal from '@/components/Modal';
 
 type DashboardData = {
   workspace: { id: string; name: string; clerkOrganizationId: string | null } | null;
@@ -29,6 +30,11 @@ export default function DashboardPage() {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [channelModalOpen, setChannelModalOpen] = useState(false);
+  const [channelName, setChannelName] = useState('');
+  const [channelDescription, setChannelDescription] = useState('');
+  const [channelSaving, setChannelSaving] = useState(false);
+  const [channelError, setChannelError] = useState('');
 
   useEffect(() => {
     fetch('/api/dashboard')
@@ -49,6 +55,31 @@ export default function DashboardPage() {
     ['Focus score', `${dashboard.stats.focusScore}%`, 'Database records', 'text-[#c6a8ff]'],
   ];
 
+  const createChannel = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!dashboard.workspace || !channelName.trim()) return;
+    setChannelSaving(true);
+    setChannelError('');
+    try {
+      const response = await fetch(`/api/workspaces/${dashboard.workspace.id}/channels/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: channelName.trim().toLowerCase(), description: channelDescription.trim(), isPublic: true }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Unable to create channel');
+      setDashboard((current) => ({ ...current, channels: [...current.channels, { id: result.channel.id, name: result.channel.name }].sort((a, b) => a.name.localeCompare(b.name)) }));
+      setActiveChannelId(result.channel.id);
+      setChannelName('');
+      setChannelDescription('');
+      setChannelModalOpen(false);
+    } catch (error) {
+      setChannelError(error instanceof Error ? error.message : 'Unable to create channel');
+    } finally {
+      setChannelSaving(false);
+    }
+  };
+
   return (
     <main className={`dashboard-shell min-h-screen ${isDarkMode ? 'dashboard-dark' : 'dashboard-light'}`}>
       <div className="flex min-h-screen">
@@ -67,7 +98,7 @@ export default function DashboardPage() {
             ))}
           </nav>
           <div className="mt-8">
-            <div className="flex items-center justify-between px-3 pb-2"><p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#777b9a]">Channels</p><span className="text-xs text-[#777b9a]">{dashboard.channels.length}</span></div>
+            <div className="flex items-center justify-between px-3 pb-2"><p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#777b9a]">Channels</p><button type="button" onClick={() => setChannelModalOpen(true)} disabled={!dashboard.workspace} className="text-lg leading-none text-[#a6a8bd] hover:text-white disabled:opacity-40" aria-label="Create a channel">+</button></div>
             <div className="space-y-1">
               {dashboard.channels.length > 0 ? dashboard.channels.map((channel) => <button key={channel.id} onClick={() => { setActiveChannelId(channel.id); setActiveNav('Messages'); }} className={`flex w-full gap-2 rounded-lg px-3 py-2 text-left text-sm ${activeChannelId === channel.id ? 'bg-white/[0.08] text-white' : 'text-[#a6a8bd] hover:bg-white/[0.05]'}`}><span className="text-[#e2a025]">#</span>{channel.name}</button>) : <p className="px-3 text-sm text-[#777b9a]">No channels yet.</p>}
             </div>
@@ -95,6 +126,15 @@ export default function DashboardPage() {
         </section>
       </div>
       <DashboardInviteModal open={inviteModalOpen} onClose={() => setInviteModalOpen(false)} />
+      <Modal open={channelModalOpen} onClose={() => setChannelModalOpen(false)} title="Create a channel" loading={channelSaving}>
+        <form onSubmit={createChannel} className="flex flex-col gap-4">
+          <label className="text-sm font-semibold">Channel name<input value={channelName} onChange={(event) => setChannelName(event.target.value)} placeholder="e.g. project-alpha" required maxLength={80} className="mt-2 w-full rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-white outline-none" /></label>
+          <label className="text-sm font-semibold">Description <span className="font-normal text-[#9a9b9e]">(optional)</span><textarea value={channelDescription} onChange={(event) => setChannelDescription(event.target.value)} placeholder="What is this channel for?" maxLength={250} rows={3} className="mt-2 w-full rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-white outline-none" /></label>
+          <p className="text-xs text-[#a6a8bd]">Everyone in this workspace will be added so they can join the group conversation.</p>
+          {channelError && <p className="text-sm text-red-300">{channelError}</p>}
+          <div className="flex justify-end gap-3"><button type="button" onClick={() => setChannelModalOpen(false)} className="rounded-lg border border-white/15 px-4 py-2 text-sm font-bold">Cancel</button><button type="submit" disabled={channelSaving} className="rounded-lg bg-[#034697] px-4 py-2 text-sm font-bold">{channelSaving ? 'Creating...' : 'Create channel'}</button></div>
+        </form>
+      </Modal>
     </main>
   );
 }
