@@ -27,43 +27,45 @@ const GetStarted = () => {
   const allFieldsValid = Boolean(
     workspaceName &&
       channelName &&
-      (!imageUrl || (isUrl(imageUrl) && RegExp(pattern).test(imageUrl))) &&
-      emails.length > 0
+      (!imageUrl || (isUrl(imageUrl) && RegExp(pattern).test(imageUrl)))
   );
 
-  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    if (allFieldsValid) {
-      e.stopPropagation();
+  const createWorkspace = async (inviteEmails: string[]) => {
+    if (!allFieldsValid || loading) return;
 
-      try {
-        setLoading(true);
-        const response = await fetch('/api/workspaces/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            workspaceName: workspaceName.trim(),
-            channelName: channelName.trim(),
-            emails,
-            imageUrl,
-          }),
-        });
+    try {
+      setLoading(true);
+      const response = await fetch('/api/workspaces/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspaceName: workspaceName.trim(),
+          channelName: channelName.trim(),
+          emails: inviteEmails,
+          imageUrl,
+        }),
+      });
 
-        const result = await response.json();
+      const result = await response.json();
 
-        if (response.ok) {
-          alert('Workspace created successfully!');
-          const { workspace, channel } = result;
-          router.push(`/client/${workspace.id}/${channel.id}`);
-        } else {
-          alert(`Error: ${result.error}`);
-        }
-      } catch (error) {
-        console.error('Error creating workspace:', error);
-        alert('An unexpected error occurred.');
-      } finally {
-        setLoading(false);
+      if (response.ok) {
+        alert(inviteEmails.length > 0 ? 'Workspace created and invitations prepared!' : 'Workspace created. You can invite members later.');
+        const { workspace, channel } = result;
+        router.push(`/client/${workspace.id}/${channel.id}`);
+      } else {
+        alert(`Error: ${result.error}`);
       }
+    } catch (error) {
+      console.error('Error creating workspace:', error);
+      alert('An unexpected error occurred.');
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    await createWorkspace(emails);
   };
 
   return (
@@ -165,11 +167,20 @@ const GetStarted = () => {
                 />
                 <Button
                   type="submit"
-                  disabled={emails.length === 0}
+                  disabled={!allFieldsValid || loading}
                   className="w-fit order-5 capitalize py-2 hover:bg-[#592a5a] hover:border-[#592a5a]"
                   loading={loading}
                 >
                   Submit
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={!allFieldsValid || loading}
+                  onClick={() => createWorkspace([])}
+                  className="w-fit order-6 capitalize py-2"
+                >
+                  Skip invites for now
                 </Button>
               </form>
               <Tags

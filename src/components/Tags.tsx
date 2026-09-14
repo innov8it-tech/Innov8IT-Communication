@@ -17,6 +17,14 @@ const Tags = ({ label, placeholder, values: tags, setValues }: TagsProps) => {
     setInputValue(e.target.value);
   };
 
+  const commitInputValue = () => {
+    const value = inputValue.trim();
+    if (value && isEmail(value) && !tags.includes(value)) {
+      setValues([...tags, value]);
+      setInputValue('');
+    }
+  };
+
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const value = inputValue.trim();
 
@@ -65,7 +73,7 @@ const Tags = ({ label, placeholder, values: tags, setValues }: TagsProps) => {
             </button>
           </div>
         ))}
-        <form className="h-full mt-2" onSubmit={(e) => e.preventDefault()}>
+        <div className="h-full mt-2">
           <input
             className="input w-[200px] h-full outline-none bg-transparent ring-0 focus:ring-0 border-none px-0 placeholder:text-base placeholder:text-icon-gray"
             type="email"
@@ -73,10 +81,10 @@ const Tags = ({ label, placeholder, values: tags, setValues }: TagsProps) => {
             value={inputValue}
             onChange={handleInputChange}
             onKeyDown={handleInputKeyDown}
+            onBlur={commitInputValue}
             autoComplete="off"
           />
-          <button type="submit" className="hidden"></button>
-        </form>
+        </div>
       </div>
     </div>
   );

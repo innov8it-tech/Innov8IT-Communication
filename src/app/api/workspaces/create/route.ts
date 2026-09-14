@@ -30,8 +30,7 @@ export async function POST(request: Request) {
     if (
       !workspaceName ||
       !channelName ||
-      !Array.isArray(emails) ||
-      emails.length === 0
+      !Array.isArray(emails)
     ) {
       return NextResponse.json(
         { error: 'Invalid input data' },
