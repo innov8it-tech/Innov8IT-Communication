@@ -118,9 +118,9 @@ const DirectMessagePage = ({ params }: DirectMessagePageProps) => {
         <span className="rounded-full bg-[#034697]/30 px-3 py-1 text-xs font-semibold text-[#e2a025]">Private</span>
       </div>
       <div className="relative min-h-0 flex-1 overflow-hidden">
+        <div id="message-input" className="absolute inset-x-0 bottom-0 z-10 px-5 pb-4" />
         <ChannelChat channel={directChannel} />
       </div>
-      <div id="message-input" className="relative px-5 pb-4" />
     </div>
   );
 };
