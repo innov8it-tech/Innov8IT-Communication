@@ -94,20 +94,28 @@ export async function GET(
       }
 
       if (streamClient) {
+        // Stream requires users to exist before they can be channel members.
+        // Clerk users may not have opened the app yet, so provision the
+        // accepted workspace members before creating the shared channel.
+        await streamClient.upsertUsers(
+          workspace.memberships.map((member) => ({
+            id: member.userId,
+            name: member.email,
+            email: member.email,
+          }))
+        );
+
         const streamChannel = streamClient.channel('messaging', dbChannel.id, {
           members: publicMemberIds,
           name: dbChannel.name,
           description: dbChannel.description || undefined,
           workspaceId,
+          created_by_id: userId,
         });
         try {
           await streamChannel.create();
         } catch {
-          try {
-            await streamChannel.addMembers(publicMemberIds);
-          } catch (streamError) {
-            console.error(`Unable to sync Stream channel ${dbChannel.id}:`, streamError);
-          }
+          await streamChannel.addMembers(publicMemberIds);
         }
       }
     }

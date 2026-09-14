@@ -104,7 +104,8 @@ const Channel = ({ params }: ChannelProps) => {
         const currentMembers = Array.isArray(channel.memberIds)
           ? channel.memberIds.filter((id): id is string => typeof id === 'string')
           : workspace.memberships.map((m) => m.userId);
-        const chatChannel = chatClient.channel('messaging', channelId, {
+        const activeChannelId = channel.id;
+        const chatChannel = chatClient.channel('messaging', activeChannelId, {
           members: currentMembers,
           name: channel.name,
           description: channel.description,
@@ -113,10 +114,10 @@ const Channel = ({ params }: ChannelProps) => {
 
         await chatChannel.watch();
 
-        if (currentCall?.id === channelId) {
+        if (currentCall?.id === activeChannelId) {
           setChannelCall(currentCall);
         } else {
-          const channelCall = videoClient?.call('default', channelId);
+          const channelCall = videoClient?.call('default', activeChannelId);
           setChannelCall(channelCall);
         }
 
@@ -124,7 +125,7 @@ const Channel = ({ params }: ChannelProps) => {
         setChatChannel(chatChannel);
       } catch (error) {
         console.error('Error loading channel:', error);
-        setChannelError('This channel could not be connected. Check your Stream configuration and try again.');
+        setChannelError('This channel could not be connected. Please refresh and try again.');
       } finally {
         setChannelLoading(false);
       }
