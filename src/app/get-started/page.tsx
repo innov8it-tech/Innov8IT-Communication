@@ -19,7 +19,7 @@ const pattern = `(http)?s?:?(\/\/[^"']*\.(?:png|jpg|jpeg|gif|png|svg))`;
 const GetStarted = () => {
   const router = useRouter();
   const [workspaceName, setWorkspaceName] = useState('');
-  const [channelName, setChannelName] = useState('');
+  const [channelName] = useState('general');
   const [emails, setEmails] = useState<string[]>([]);
   const [imageUrl, setImageUrl] = useState('');
   const [loading, setLoading] = useState(false);
@@ -157,13 +157,13 @@ const GetStarted = () => {
                   title='Image URL must start with "http://" or "https://" and end with ".png", ".jpg", ".jpeg", ".gif", or ".svg"'
                 />
                 <TextField
-                  label="Channel name"
+                  label="Default channel"
                   name="channelName"
                   value={channelName}
-                  onChange={(e) => setChannelName(e.target.value.toLowerCase())}
-                  placeholder="Enter a name for your first channel"
+                  placeholder="general"
                   maxLength={80}
                   required
+                  readOnly
                 />
                 <Button
                   type="submit"

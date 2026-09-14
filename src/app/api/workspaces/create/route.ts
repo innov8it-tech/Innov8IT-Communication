@@ -31,12 +31,11 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { workspaceName, channelName, emails, imageUrl } = body;
+    const { workspaceName, emails, imageUrl } = body;
 
     // Validate input
     if (
       !workspaceName ||
-      !channelName ||
       !Array.isArray(emails)
     ) {
       return NextResponse.json(
@@ -72,11 +71,13 @@ export async function POST(request: Request) {
       },
     });
 
-    // Create initial channel
+    // Every workspace starts with one shared default channel.
     const channel = await prisma.channel.create({
       data: {
         id: generateChannelId(),
-        name: channelName,
+        name: 'general',
+        description: 'A channel for everyone in the workspace.',
+        memberIds: [userId],
         workspaceId: workspace.id,
       },
     });
@@ -169,7 +170,7 @@ export async function POST(request: Request) {
       },
       channel: {
         id: channel.id,
-        name: channelName,
+        name: channel.name,
       },
       invitationsSent: invitations.length,
       invitationsSkipped: skippedEmails.length,

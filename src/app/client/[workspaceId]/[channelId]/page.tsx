@@ -83,6 +83,7 @@ const Channel = ({ params }: ChannelProps) => {
         if (response.ok) {
           setWorkspace(result.workspace);
           setOtherWorkspaces(result.otherWorkspaces);
+          setChannel(result.workspace.channels.find((item: { id: string }) => item.id === channelId) || result.workspace.channels[0]);
           localStorage.setItem(
             'activitySession',
             JSON.stringify({ workspaceId, channelId })

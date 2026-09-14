@@ -62,7 +62,8 @@ export async function GET(
     }
 
     const memberIds = workspace.memberships.map((member) => member.userId);
-    if (workspace.channels.length === 0) {
+    const hasGeneralChannel = workspace.channels.some((channel) => channel.name.toLowerCase() === 'general');
+    if (!hasGeneralChannel) {
       await prisma.channel.create({
         data: {
           id: generateChannelId(),
