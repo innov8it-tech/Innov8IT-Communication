@@ -31,6 +31,8 @@ import RailButton from '@/components/RailButton';
 import SearchBar from '@/components/SearchBar';
 import WorkspaceLayout from '@/components/WorkspaceLayout';
 import WorkspaceSwitcher from '@/components/WorkspaceSwitcher';
+import DirectMessageModal from '@/components/DirectMessageModal';
+import ActivityModal from '@/components/ActivityModal';
 
 interface LayoutProps {
   children?: ReactNode;
@@ -98,6 +100,8 @@ const Layout = ({ children }: LayoutProps) => {
   const [chatClient, setChatClient] = useState<StreamChat>();
   const [videoClient, setVideoClient] = useState<StreamVideoClient>();
   const [channelCall, setChannelCall] = useState<Call>();
+  const [directMessageOpen, setDirectMessageOpen] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
 
   useEffect(() => {
     const customProvider = async () => {
@@ -209,10 +213,12 @@ const Layout = ({ children }: LayoutProps) => {
                       <RailButton
                         title="DMs"
                         icon={<Messages color="var(--primary)" />}
+                        onClick={() => setDirectMessageOpen(true)}
                       />
                       <RailButton
                         title="Activity"
                         icon={<Notifications color="var(--primary)" />}
+                        onClick={() => setActivityOpen(true)}
                       />
                       <RailButton
                         title="Later"
@@ -253,6 +259,8 @@ const Layout = ({ children }: LayoutProps) => {
               </div>
               <WorkspaceLayout>{children}</WorkspaceLayout>
             </div>
+            <DirectMessageModal open={directMessageOpen} onClose={() => setDirectMessageOpen(false)} />
+            <ActivityModal open={activityOpen} onClose={() => setActivityOpen(false)} />
           </div>
         </StreamVideo>
       </Chat>

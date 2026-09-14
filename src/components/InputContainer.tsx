@@ -267,6 +267,26 @@ const InputContainer = () => {
         text,
         attachments,
       });
+
+      const mentionedUserIds = workspace.memberships
+        .filter((member) => {
+          const normalizedText = text.toLowerCase();
+          return normalizedText.includes(`@${member.email.toLowerCase()}`) || normalizedText.includes(member.email.toLowerCase());
+        })
+        .map((member) => member.userId);
+      if (mentionedUserIds.length > 0) {
+        fetch('/api/workspaces/current/activity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userIds: mentionedUserIds,
+            workspaceId: workspace.id,
+            channelId: channel.id,
+            type: 'mention',
+            message: `You were mentioned in #${channelName}.`,
+          }),
+        }).catch((error) => console.error('Unable to record mention activity:', error));
+      }
       setFilesInfo([]);
       removeAttachments(attachments.map((a) => a.localMetadata.id));
 

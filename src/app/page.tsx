@@ -98,6 +98,16 @@ export default async function Home() {
       },
     });
 
+    await prisma.activity.create({
+      data: {
+        userId: user!.id,
+        workspaceId: invitation!.workspaceId,
+        actorId: invitation!.invitedById,
+        type: 'workspace_joined',
+        message: 'You joined this workspace.',
+      },
+    });
+
     await prisma.invitation.update({
       where: { token },
       data: {

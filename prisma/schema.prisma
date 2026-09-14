@@ -17,6 +17,7 @@ model Workspace {
   channels     Channel[]    
   memberships  Membership[]
   invitations Invitation[]
+  activities   Activity[]
 }
 
 model Channel {
@@ -49,4 +50,20 @@ model Invitation {
   acceptedById  String?
   createdAt     DateTime   @default(now())
   acceptedAt    DateTime?
+}
+
+model Activity {
+  id          String   @id @default(cuid())
+  userId      String
+  workspaceId String
+  actorId     String
+  channelId   String?
+  type        String
+  message     String
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, workspaceId, read])
+  @@index([workspaceId, createdAt])
 }
