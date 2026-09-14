@@ -259,7 +259,9 @@ const Layout = ({ children }: LayoutProps) => {
               </div>
               <WorkspaceLayout>{children}</WorkspaceLayout>
             </div>
-            <DirectMessageModal open={directMessageOpen} onClose={() => setDirectMessageOpen(false)} />
+            {!loading && workspace && (
+              <DirectMessageModal open={directMessageOpen} onClose={() => setDirectMessageOpen(false)} />
+            )}
             <ActivityModal open={activityOpen} onClose={() => setActivityOpen(false)} />
           </div>
         </StreamVideo>
