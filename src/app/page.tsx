@@ -172,7 +172,7 @@ export default async function Home() {
               title={`Workspaces for ${userEmail}`}
               workspaces={workspaces}
               action={launchChat}
-              actionText="Launch Slack"
+            actionText="Launch Innov8IT Hub"
             />
           ) : (
             <p className="text-lg font-bold pt-4">
@@ -193,8 +193,8 @@ export default async function Home() {
             <p className="mt-[50px] text-center sm:text-start mb-3 sm:my-0 pr-4 tracking-[.02em] text-[17.8px] text-black">
               <strong>
                 {workspaces.length > 0
-                  ? 'Want to use Slack with a different team?'
-                  : 'Want to get started with Slack?'}
+                  ? 'Want to use Innov8IT Hub with a different team?'
+                  : 'Want to get started with Innov8IT Hub?'}
               </strong>
             </p>
             <form action={goToGetStartedPage}>
