@@ -10,7 +10,7 @@ import {
 } from '@/lib/utils';
 
 export async function POST(request: Request) {
-  const { userId } = await auth();
+  const { userId, orgId } = await auth();
 
   if (!userId) {
     return NextResponse.json(
@@ -22,6 +22,13 @@ export async function POST(request: Request) {
   try {
     const user = await currentUser();
     const userEmail = user?.primaryEmailAddress?.emailAddress;
+
+    if (!userEmail) {
+      return NextResponse.json(
+        { error: 'Your account must have a verified email address before creating a workspace.' },
+        { status: 400 }
+      );
+    }
 
     const body = await request.json();
     const { workspaceName, channelName, emails, imageUrl } = body;
@@ -49,10 +56,10 @@ export async function POST(request: Request) {
     }
 
     const clerk = await clerkClient();
-    const organization = await clerk.organizations.createOrganization({
+    const organizationId = orgId || (await clerk.organizations.createOrganization({
       name: workspaceName,
       createdBy: userId,
-    });
+    })).id;
 
     // Create workspace
     const workspace = await prisma.workspace.create({
@@ -61,7 +68,7 @@ export async function POST(request: Request) {
         name: workspaceName,
         image: imageUrl || null,
         ownerId: userId,
-        clerkOrganizationId: organization.id,
+        clerkOrganizationId: organizationId,
       },
     });
 
@@ -139,7 +146,7 @@ export async function POST(request: Request) {
         });
 
         await clerk.organizations.createOrganizationInvitation({
-          organizationId: organization.id,
+          organizationId,
           inviterUserId: userId,
           emailAddress: email,
           role: 'org:member',
@@ -177,7 +184,9 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Error creating workspace:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      {
+        error: error instanceof Error ? error.message : 'Unable to create workspace.',
+      },
       { status: 500 }
     );
   } finally {
