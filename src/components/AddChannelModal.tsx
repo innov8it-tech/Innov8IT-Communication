@@ -16,7 +16,6 @@ const AddChannelModal = ({ open, onClose }: AddChannelModalProps) => {
   const { setChannel, workspace, setWorkspace } = useContext(AppContext);
   const [channelName, setChannelName] = useState('');
   const [channelDescription, setChannelDescription] = useState('');
-  const [memberIds, setMemberIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
   const channelNameRegex = useMemo(() => {
@@ -25,6 +24,7 @@ const AddChannelModal = ({ open, onClose }: AddChannelModalProps) => {
   }, [workspace.channels]);
 
   const createChannel = async (e: FormEvent) => {
+    e.preventDefault();
     const regex = new RegExp(channelNameRegex);
     if (channelName && regex.test(channelName)) {
       e.stopPropagation();
@@ -38,7 +38,7 @@ const AddChannelModal = ({ open, onClose }: AddChannelModalProps) => {
             body: JSON.stringify({
               name: channelName.trim(),
               description: channelDescription.trim(),
-              memberIds,
+              isPublic: true,
             }),
           }
         );
@@ -70,7 +70,6 @@ const AddChannelModal = ({ open, onClose }: AddChannelModalProps) => {
   const closeModal = () => {
     setChannelName('');
     setChannelDescription('');
-    setMemberIds([]);
     onClose();
   };
 
@@ -113,35 +112,19 @@ const AddChannelModal = ({ open, onClose }: AddChannelModalProps) => {
           multiline={5}
           maxLength={250}
         />
-        <div className="flex flex-col gap-2">
-          <label className="text-[15px] font-semibold text-white">Add members <span className="text-[#9a9b9e] font-normal">(optional)</span></label>
-          <div className="max-h-40 overflow-y-auto rounded-lg border border-[#797c8180] p-2">
-            {workspace.memberships.map((member) => {
-              const checked = memberIds.includes(member.userId);
-              return (
-                <label key={member.userId} className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm text-white hover:bg-[#034697]/30">
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => setMemberIds((current) => checked ? current.filter((id) => id !== member.userId) : [...current, member.userId])}
-                    className="accent-[#e2a025]"
-                  />
-                  <span>{member.email}</span>
-                </label>
-              );
-            })}
-          </div>
-        </div>
+        <p className="-mt-3 text-sm text-[#9a9b9e]">
+          Everyone in this workspace will automatically see and join this channel.
+        </p>
         <div className="w-full flex items-center justify-end gap-3">
           <button
             type="submit"
-            onClick={createChannel}
             className="order-2 flex items-center justify-center min-w-[80px] h-[36px] px-3 pb-[1px] text-[15px] border border-[#034697] bg-[#034697] hover:bg-[#023775] font-bold select-none text-white rounded-lg"
             disabled={loading}
           >
             {loading ? <Spinner /> : 'Save'}
           </button>
           <button
+            type="button"
             onClick={closeModal}
             className="min-w-[80px] h-[36px] px-3 pb-[1px] text-[15px] border border-[#797c8180] font-bold select-none text-white rounded-lg"
             disabled={loading}

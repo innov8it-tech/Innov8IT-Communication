@@ -263,7 +263,8 @@ const Channel = ({ params }: ChannelProps) => {
       {/* Chat */}
       <div className="relative flex flex-col w-full h-full flex-1 overflow-hidden ">
         {/* Body */}
-        <div className="relative flex-1">
+          <div className="relative flex-1">
+          <div id="message-input" className="absolute inset-x-0 bottom-0 z-10 px-5 pb-4" />
           <div className="absolute -top-2 bottom-0 flex w-full overflow-hidden">
             <div
               style={{
@@ -285,10 +286,7 @@ const Channel = ({ params }: ChannelProps) => {
           </div>
         </div>
         {/* Footer */}
-        <div className="relative max-h-[calc(100%-36px)] flex flex-col -mt-2 px-5">
-          <div id="message-input" className="flex-1"></div>
-          <div className="w-full flex items-center h-6 pl-3 pr-2"></div>
-        </div>
+        <div className="relative h-6 shrink-0" />
       </div>
       {!channelLoading && chatChannel && channel && (
         <ChannelMembersModal
