@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { auth, currentUser } from '@clerk/nextjs/server';
+import { auth, clerkClient, currentUser } from '@clerk/nextjs/server';
 
 import prisma from '@/lib/prisma';
 import {
@@ -49,6 +49,12 @@ export async function POST(request: Request) {
       }
     }
 
+    const clerk = await clerkClient();
+    const organization = await clerk.organizations.createOrganization({
+      name: workspaceName,
+      createdBy: userId,
+    });
+
     // Create workspace
     const workspace = await prisma.workspace.create({
       data: {
@@ -56,6 +62,7 @@ export async function POST(request: Request) {
         name: workspaceName,
         image: imageUrl || null,
         ownerId: userId,
+        clerkOrganizationId: organization.id,
       },
     });
 
@@ -130,6 +137,14 @@ export async function POST(request: Request) {
             workspaceId: workspace.id,
             invitedById: userId,
           },
+        });
+
+        await clerk.organizations.createOrganizationInvitation({
+          organizationId: organization.id,
+          inviterUserId: userId,
+          emailAddress: email,
+          role: 'org:member',
+          redirectUrl: `${new URL(request.url).origin}/`,
         });
 
         invitations.push(invitation);

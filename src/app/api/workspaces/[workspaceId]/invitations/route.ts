@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, clerkClient } from '@clerk/nextjs/server';
 
 import prisma from '@/lib/prisma';
 import { generateToken, isEmail } from '@/lib/utils';
@@ -26,7 +26,7 @@ export async function POST(request: Request, { params }: RouteContext) {
 
     const workspace = await prisma.workspace.findUnique({
       where: { id: workspaceId },
-      select: { id: true, name: true, ownerId: true },
+      select: { id: true, name: true, ownerId: true, clerkOrganizationId: true },
     });
 
     if (!workspace) {
@@ -65,6 +65,17 @@ export async function POST(request: Request, { params }: RouteContext) {
       },
       select: { token: true },
     });
+
+    if (!existingInvitation && workspace.clerkOrganizationId) {
+      const clerk = await clerkClient();
+      await clerk.organizations.createOrganizationInvitation({
+        organizationId: workspace.clerkOrganizationId,
+        inviterUserId: userId,
+        emailAddress: email,
+        role: 'org:member',
+        redirectUrl: `${new URL(request.url).origin}/`,
+      });
+    }
 
     const origin = new URL(request.url).origin;
     const signInUrl = `${origin}/sign-in`;

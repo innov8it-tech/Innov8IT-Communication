@@ -13,6 +13,7 @@ model Workspace {
   name         String
   image        String?
   ownerId      String 
+  clerkOrganizationId String? @unique
   channels     Channel[]    
   memberships  Membership[]
   invitations Invitation[]

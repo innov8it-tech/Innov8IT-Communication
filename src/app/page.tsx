@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import { redirect } from 'next/navigation';
-import { currentUser } from '@clerk/nextjs/server';
+import { clerkClient, currentUser } from '@clerk/nextjs/server';
 import { SignOutButton } from '@clerk/nextjs';
 
 import Button from '@/components/Button';
@@ -43,6 +43,7 @@ export default async function Home() {
       id: workspace.id,
       name: workspace.name,
       image: workspace.image,
+      clerkOrganizationId: workspace.clerkOrganizationId,
       memberCount: workspace._count.memberships,
       firstChannelId: workspace.channels[0].id,
     };
@@ -73,6 +74,7 @@ export default async function Home() {
       id: workspace.id,
       name: workspace.name,
       image: workspace.image,
+      clerkOrganizationId: workspace.clerkOrganizationId,
       memberCount: workspace._count.memberships,
       token: invitation.token,
     };
@@ -108,6 +110,7 @@ export default async function Home() {
       where: { id: invitation!.workspaceId },
       select: {
         id: true,
+        clerkOrganizationId: true,
         channels: {
           take: 1,
           select: {
@@ -116,6 +119,20 @@ export default async function Home() {
         },
       },
     });
+
+    if (workspace?.clerkOrganizationId) {
+      try {
+        const clerk = await clerkClient();
+        await clerk.organizations.createOrganizationMembership({
+          organizationId: workspace.clerkOrganizationId,
+          userId: user!.id,
+          role: 'org:member',
+        });
+      } catch (error) {
+        // The Clerk invitation may already have been accepted separately.
+        console.error('Unable to sync Clerk organization membership:', error);
+      }
+    }
 
     redirect(`/client/${workspace!.id}/${workspace!.channels[0].id}`);
   }
