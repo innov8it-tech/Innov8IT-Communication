@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 
 import prisma from '@/lib/prisma';
+import { syncStreamChannels } from '@/lib/stream-server';
 
 export async function GET(
   _: Request,
@@ -41,7 +42,7 @@ export async function GET(
     }
 
     // Fetch the workspace along with related data
-    const workspace = await prisma.workspace.findUnique({
+    let workspace = await prisma.workspace.findUnique({
       where: { id: workspaceId },
       include: {
         channels: true,
@@ -57,6 +58,40 @@ export async function GET(
         { error: 'Workspace not found' },
         { status: 404 }
       );
+    }
+
+    const memberIds = await syncStreamChannels({
+      workspaceId,
+      ownerId: workspace.ownerId,
+      channels: workspace.channels,
+      memberships: workspace.memberships,
+    });
+
+    for (const dbChannel of workspace.channels) {
+      const currentMemberIds = Array.isArray(dbChannel.memberIds)
+        ? dbChannel.memberIds.filter((id): id is string => typeof id === 'string')
+        : [];
+      const channelMemberIds = Array.from(new Set([...currentMemberIds, ...memberIds]));
+
+      if (channelMemberIds.length !== currentMemberIds.length) {
+        await prisma.channel.update({
+          where: { id: dbChannel.id },
+          data: { memberIds: channelMemberIds },
+        });
+      }
+    }
+
+    workspace = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      include: {
+        channels: true,
+        memberships: true,
+        invitations: { where: { acceptedAt: null } },
+      },
+    });
+
+    if (!workspace) {
+      return NextResponse.json({ error: 'Workspace not found' }, { status: 404 });
     }
 
     // Fetch the other workspaces the user is a member of excluding the current workspace
@@ -81,9 +116,10 @@ export async function GET(
     return NextResponse.json({ workspace, otherWorkspaces }, { status: 200 });
   } catch (error) {
     console.error('Error fetching workspace:', error);
+    const message = error instanceof Error ? error.message : 'Internal server error';
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: message },
+      { status: message.startsWith('Stream synchronization failed') ? 503 : 500 }
     );
   } finally {
     await prisma.$disconnect();

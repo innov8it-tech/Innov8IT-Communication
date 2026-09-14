@@ -8,6 +8,7 @@ import {
   generateWorkspaceId,
   isEmail,
 } from '@/lib/utils';
+import { syncStreamChannels } from '@/lib/stream-server';
 
 export async function POST(request: Request) {
   const { userId, orgId } = await auth();
@@ -91,6 +92,20 @@ export async function POST(request: Request) {
         },
         role: 'admin',
       },
+    });
+
+    await syncStreamChannels({
+      workspaceId: workspace.id,
+      ownerId: userId,
+      channels: [channel],
+      memberships: [{
+        id: 'owner',
+        userId,
+        email: userEmail,
+        workspaceId: workspace.id,
+        role: 'admin',
+        joinedAt: new Date(),
+      }],
     });
 
     // Invite provided emails

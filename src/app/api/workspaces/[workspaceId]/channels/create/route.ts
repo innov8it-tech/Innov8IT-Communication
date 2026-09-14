@@ -3,6 +3,7 @@ import { auth, currentUser } from '@clerk/nextjs/server';
 
 import { generateChannelId } from '@/lib/utils';
 import prisma from '@/lib/prisma';
+import { getStreamServerClient } from '@/lib/stream-server';
 
 export async function POST(
   request: Request,
@@ -31,7 +32,7 @@ export async function POST(
     const userId = user!.id;
 
     const body = await request.json();
-    const { name, description, memberIds, isPublic } = body;
+    const { name, description, memberIds, isPublic = true } = body;
 
     if (!name || typeof name !== 'string' || name.trim() === '') {
       return NextResponse.json(
@@ -46,7 +47,7 @@ export async function POST(
 
     const workspaceMembers = await prisma.membership.findMany({
       where: { workspaceId },
-      select: { userId: true },
+      select: { userId: true, email: true, workspaceId: true, id: true, role: true, joinedAt: true },
     });
     const allowedMemberIds = new Set(workspaceMembers.map((member) => member.userId));
     const validMemberIds = isPublic
@@ -107,6 +108,29 @@ export async function POST(
       },
     });
 
+    const streamClient = getStreamServerClient();
+    if (!streamClient) {
+      throw new Error(
+        'Stream is not configured. Set NEXT_PUBLIC_STREAM_API_KEY and STREAM_API_SECRET.'
+      );
+    }
+
+    await streamClient.upsertUsers(
+      workspaceMembers.map((member) => ({
+        id: member.userId,
+        name: member.email,
+        email: member.email,
+      }))
+    );
+    const streamChannel = streamClient.channel('messaging', newChannel.id, {
+      members: validMemberIds,
+      name: newChannel.name,
+      description: newChannel.description || undefined,
+      workspaceId,
+      created_by_id: userId,
+    });
+    await streamChannel.create();
+
     return NextResponse.json(
       {
         message: 'Channel created successfully',
@@ -117,8 +141,8 @@ export async function POST(
   } catch (error) {
     console.error('Error creating channel:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { status: error instanceof Error && error.message.startsWith('Stream') ? 503 : 500 }
     );
   } finally {
     await prisma.$disconnect();

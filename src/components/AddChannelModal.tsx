@@ -25,6 +25,7 @@ const AddChannelModal = ({ open, onClose }: AddChannelModalProps) => {
   }, [workspace.channels]);
 
   const createChannel = async (e: FormEvent) => {
+    e.preventDefault();
     const regex = new RegExp(channelNameRegex);
     if (channelName && regex.test(channelName)) {
       e.stopPropagation();
@@ -135,13 +136,13 @@ const AddChannelModal = ({ open, onClose }: AddChannelModalProps) => {
         <div className="w-full flex items-center justify-end gap-3">
           <button
             type="submit"
-            onClick={createChannel}
             className="order-2 flex items-center justify-center min-w-[80px] h-[36px] px-3 pb-[1px] text-[15px] border border-[#034697] bg-[#034697] hover:bg-[#023775] font-bold select-none text-white rounded-lg"
             disabled={loading}
           >
             {loading ? <Spinner /> : 'Save'}
           </button>
           <button
+            type="button"
             onClick={closeModal}
             className="min-w-[80px] h-[36px] px-3 pb-[1px] text-[15px] border border-[#797c8180] font-bold select-none text-white rounded-lg"
             disabled={loading}
