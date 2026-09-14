@@ -3,6 +3,10 @@ import { auth } from '@clerk/nextjs/server';
 
 import prisma from '@/lib/prisma';
 
+// Prisma and Clerk's server auth require the Node.js runtime on Vercel.
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ workspaceId: string; channelId: string }> }
