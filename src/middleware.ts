@@ -1,18 +1,14 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
-import { NextResponse } from 'next/server';
 
 const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
+  '/dashboard(.*)',
   '/api/webhooks(.*)',
   '/api/workspaces/current(.*)',
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
-  if (process.env.NODE_ENV === 'production' && request.nextUrl.pathname.startsWith('/dashboard')) {
-    return new NextResponse('Not Found', { status: 404 });
-  }
-
   if (!isPublicRoute(request)) {
     await auth.protect();
   }

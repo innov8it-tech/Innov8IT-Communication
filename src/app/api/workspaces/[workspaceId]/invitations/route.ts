@@ -19,13 +19,12 @@ export async function POST(request: Request, { params }: RouteContext) {
     const { workspaceId } = await params;
     const body = await request.json();
     const email = String(body.email || '').trim().toLowerCase();
-    const sendEmail = body.sendEmail !== false;
 
     if (!isEmail(email)) {
       return NextResponse.json({ error: 'Enter a valid email address.' }, { status: 400 });
     }
 
-    let workspace = await prisma.workspace.findUnique({
+    const workspace = await prisma.workspace.findUnique({
       where: { id: workspaceId },
       select: { id: true, name: true, ownerId: true, clerkOrganizationId: true },
     });
@@ -41,19 +40,6 @@ export async function POST(request: Request, { params }: RouteContext) {
 
     if (workspace.ownerId !== userId && membership?.role !== 'admin') {
       return NextResponse.json({ error: 'Only workspace admins can invite users.' }, { status: 403 });
-    }
-
-    if (!workspace.clerkOrganizationId) {
-      const clerk = await clerkClient();
-      const organization = await clerk.organizations.createOrganization({
-        name: workspace.name,
-        createdBy: userId,
-      });
-      workspace = await prisma.workspace.update({
-        where: { id: workspace.id },
-        data: { clerkOrganizationId: organization.id },
-        select: { id: true, name: true, ownerId: true, clerkOrganizationId: true },
-      });
     }
 
     const existingMembership = await prisma.membership.findFirst({
@@ -80,7 +66,7 @@ export async function POST(request: Request, { params }: RouteContext) {
       select: { token: true },
     });
 
-    if (sendEmail && workspace.clerkOrganizationId) {
+    if (!existingInvitation && workspace.clerkOrganizationId) {
       const clerk = await clerkClient();
       await clerk.organizations.createOrganizationInvitation({
         organizationId: workspace.clerkOrganizationId,
@@ -105,9 +91,9 @@ export async function POST(request: Request, { params }: RouteContext) {
     ].join('\n');
 
     return NextResponse.json({
-      message: sendEmail ? 'Invitation sent.' : 'Invitation link generated.',
-      invitationUrl: `${workspaceUrl}?invite=${encodeURIComponent(invitation.token)}`,
-      workspaceUrl: `${workspaceUrl}?invite=${encodeURIComponent(invitation.token)}`,
+      message: existingInvitation ? 'An active invitation already exists.' : 'Invitation created.',
+      invitationUrl: signInUrl,
+      workspaceUrl,
       gmailUrl: `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`,
       token: invitation.token,
     });
