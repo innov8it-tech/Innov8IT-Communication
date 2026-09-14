@@ -12,66 +12,68 @@ interface InviteMemberModalProps {
 const InviteMemberModal = ({ open, onClose }: InviteMemberModalProps) => {
   const { workspace } = useContext(AppContext);
   const [email, setEmail] = useState('');
-  const [inviteUrl, setInviteUrl] = useState('');
+  const [gmailUrl, setGmailUrl] = useState('');
   const [message, setMessage] = useState('');
-  const [loading, setLoading] = useState<'link' | 'email' | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const requestInvite = async (sendEmail: boolean) => {
-    if (!email.trim()) return;
-    setLoading(sendEmail ? 'email' : 'link');
+  const inviteMember = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setLoading(true);
     setMessage('');
+    setGmailUrl('');
 
     try {
       const response = await fetch(`/api/workspaces/${workspace.id}/invitations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), sendEmail }),
+        body: JSON.stringify({ email }),
       });
       const result = await response.json();
+
       if (!response.ok) throw new Error(result.error || 'Unable to create invitation.');
 
-      setInviteUrl(result.invitationUrl);
-      setMessage(sendEmail ? `Invitation sent to ${email.trim()}.` : 'Invite link generated.');
-      if (sendEmail) setEmail('');
+      setGmailUrl(result.gmailUrl);
+      setMessage('Invitation ready. Open Gmail to send it.');
+      setEmail('');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unable to create invitation.');
     } finally {
-      setLoading(null);
+      setLoading(false);
     }
   };
 
-  const copyInviteLink = async () => {
-    await navigator.clipboard.writeText(inviteUrl);
-    setMessage('Invite link copied.');
-  };
-
   return (
-    <Modal open={open} onClose={onClose} title="Invite a teammate" loading={loading !== null}>
-      <div className="flex flex-col gap-4">
-        <p className="text-sm text-channel-gray">Invite someone to join {workspace.name}.</p>
+    <Modal open={open} onClose={onClose} title="Invite someone to your workspace" loading={loading}>
+      <form onSubmit={inviteMember} className="flex flex-col gap-4">
+        <p className="text-sm text-channel-gray">
+          Invite a teammate to join {workspace.name}. They must sign in with the invited email address.
+        </p>
         <label className="flex flex-col gap-2 text-sm font-semibold text-white">
-          Team email
+          Teammate email
           <input
             type="email"
             required
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            placeholder="teammate@company.com"
+            placeholder="teammate@gmail.com"
             className="rounded-lg border border-[#797c8180] bg-[#111315] px-3 py-2 font-normal text-white outline-none focus:border-[#e2a025]"
           />
         </label>
         {message && <p className="text-sm text-[#e2a025]">{message}</p>}
-        {inviteUrl && (
-          <div className="flex gap-2">
-            <input readOnly value={inviteUrl} className="min-w-0 flex-1 rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-xs text-[#c7c9d9]" />
-            <button type="button" onClick={copyInviteLink} className="rounded-lg border border-[#e2a025] px-3 py-2 text-xs font-bold text-[#e2a025]">Copy</button>
-          </div>
-        )}
         <div className="flex flex-wrap justify-end gap-3">
-          <button type="button" onClick={() => requestInvite(false)} disabled={loading !== null || !email.trim()} className="rounded-lg border border-[#e2a025] px-4 py-2 text-sm font-bold text-[#e2a025] disabled:opacity-50">{loading === 'link' ? 'Generating...' : 'Generate Link'}</button>
-          <button type="button" onClick={() => requestInvite(true)} disabled={loading !== null || !email.trim()} className="rounded-lg bg-[#034697] px-4 py-2 text-sm font-bold text-white hover:bg-[#023775] disabled:opacity-50">{loading === 'email' ? 'Sending...' : 'Send Invite'}</button>
+          <button type="button" onClick={onClose} className="rounded-lg border border-[#797c8180] px-4 py-2 text-sm font-bold text-white">
+            Close
+          </button>
+          {gmailUrl && (
+            <a href={gmailUrl} target="_blank" rel="noreferrer" className="rounded-lg bg-[#e2a025] px-4 py-2 text-sm font-bold text-[#111315]">
+              Open Gmail
+            </a>
+          )}
+          <button type="submit" disabled={loading} className="rounded-lg bg-[#034697] px-4 py-2 text-sm font-bold text-white hover:bg-[#023775] disabled:opacity-60">
+            {loading ? 'Creating...' : 'Create invite'}
+          </button>
         </div>
-      </div>
+      </form>
     </Modal>
   );
 };
