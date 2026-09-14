@@ -57,6 +57,11 @@ const DirectMessagePage = ({ params }: DirectMessagePageProps) => {
           isDirectMessage: true,
         });
         await channel.watch();
+        await channel.update({
+          name: recipient.email,
+          workspaceId: params.workspaceId,
+          isDirectMessage: true,
+        });
         if (cancelled) return;
         setRecipientEmail(recipient.email);
         setDirectChannel(channel);
