@@ -1,7 +1,8 @@
 'use client';
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { ChannelList } from 'stream-chat-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { ChannelList, ChannelPreviewUIComponentProps } from 'stream-chat-react';
 import clsx from 'clsx';
 
 import AddChannelModal from './AddChannelModal';
@@ -17,8 +18,38 @@ import Send from './icons/Send';
 import SidebarButton from './SidebarButton';
 import Threads from './icons/Threads';
 import Plus from './icons/Plus';
+import Messages from './icons/Messages';
 
 const [minWidth, defaultWidth] = [215, 275];
+
+const DirectMessagePreview = ({
+  channel,
+  unread,
+}: ChannelPreviewUIComponentProps) => {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { user } = useUser();
+  const { workspace } = useContext(AppContext);
+
+  const otherMemberId = Object.keys(channel.state.members || {}).find(
+    (memberId) => memberId !== user?.id
+  );
+  const recipient = workspace?.memberships.find(
+    (member) => member.userId === otherMemberId
+  );
+
+  if (!recipient || !otherMemberId) return null;
+
+  return (
+    <SidebarButton
+      icon={Messages}
+      title={recipient.email}
+      boldText={Boolean(unread)}
+      active={pathname === `/client/${workspace.id}/dm/${otherMemberId}`}
+      onClick={() => router.push(`/client/${workspace.id}/dm/${otherMemberId}`)}
+    />
+  );
+};
 
 type SidebarProps = {
   layoutWidth: number;
@@ -174,6 +205,38 @@ const Sidebar = ({ layoutWidth }: SidebarProps) => {
                 onClick={openCreateChannelModal}
               />
             )}
+          </div>
+          <div className="w-full flex min-h-0 flex-col">
+            <div className="h-7 -ml-1.5 flex items-center px-4 text-[15px] leading-7">
+              <button className="rounded-md hover:bg-hover-gray">
+                <ArrowDropdown color="var(--icon-gray)" />
+              </button>
+              <button
+                className="flex px-[5px] max-w-full rounded-md text-sidebar-gray font-medium hover:bg-hover-gray"
+                onClick={() => setIsDirectMessageModalOpen(true)}
+              >
+                Direct messages
+              </button>
+              <button
+                aria-label="New direct message"
+                className="ml-auto flex h-6 w-6 items-center justify-center rounded-md text-sidebar-gray hover:bg-hover-gray hover:text-white"
+                onClick={() => setIsDirectMessageModalOpen(true)}
+              >
+                <Plus color="var(--icon-gray)" size={16} />
+              </button>
+            </div>
+            <ChannelList
+              filters={{
+                type: 'messaging',
+                workspaceId: workspace.id,
+                isDirectMessage: true,
+                members: { $in: user ? [user.id] : [] },
+              }}
+              Preview={DirectMessagePreview}
+              sort={{ last_message_at: -1 }}
+              LoadingIndicator={() => null}
+              lockChannelOrder
+            />
           </div>
           {/* Handle */}
           <div

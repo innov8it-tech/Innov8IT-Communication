@@ -54,6 +54,7 @@ const DirectMessagePage = ({ params }: DirectMessagePageProps) => {
           members: memberIds,
           name: recipient.email,
           workspaceId: params.workspaceId,
+          isDirectMessage: true,
         });
         await channel.watch();
         if (cancelled) return;
