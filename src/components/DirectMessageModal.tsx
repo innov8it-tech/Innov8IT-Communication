@@ -4,6 +4,7 @@ import { useUser } from '@clerk/nextjs';
 
 import { AppContext } from '../app/client/layout';
 import Modal from './Modal';
+import Avatar from './Avatar';
 
 interface DirectMessageModalProps {
   open: boolean;
@@ -28,7 +29,7 @@ const DirectMessageModal = ({ open, onClose }: DirectMessageModalProps) => {
           .filter((member) => member.userId !== user?.id)
           .map((member) => (
             <button key={member.userId} onClick={() => startDirectMessage(member.userId)} className="flex items-center gap-3 rounded-lg border border-[#797c8180] px-3 py-3 text-left text-sm text-white hover:border-[#e2a025] hover:bg-[#034697]/30">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#034697] font-bold text-white">{member.email.slice(0, 1).toUpperCase()}</span>
+              <Avatar width={36} borderRadius={8} data={{ name: member.email, image: null }} />
               <span>{member.email}</span>
             </button>
           ))}

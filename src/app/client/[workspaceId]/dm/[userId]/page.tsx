@@ -34,7 +34,7 @@ const DirectMessagePage = ({ params }: DirectMessagePageProps) => {
     const setupDirectMessage = async () => {
       try {
         let currentWorkspace = workspace;
-        if (!currentWorkspace?.id) {
+        if (!currentWorkspace?.id || currentWorkspace.id !== params.workspaceId) {
           const response = await fetch(`/api/workspaces/${params.workspaceId}`);
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || 'Unable to load workspace');
@@ -54,6 +54,7 @@ const DirectMessagePage = ({ params }: DirectMessagePageProps) => {
           members: memberIds,
           name: recipient.email,
           workspaceId: params.workspaceId,
+          isDirectMessage: true,
         });
         await channel.watch();
         if (cancelled) return;

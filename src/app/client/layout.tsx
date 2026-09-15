@@ -1,5 +1,6 @@
 'use client';
 import { createContext, ReactNode, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Channel,
   Invitation,
@@ -95,6 +96,7 @@ const tokenProvider = async (userId: string) => {
 const API_KEY = process.env.NEXT_PUBLIC_STREAM_API_KEY as string;
 
 const Layout = ({ children }: LayoutProps) => {
+  const router = useRouter();
   const { user } = useUser();
   const [loading, setLoading] = useState(true);
   const [workspace, setWorkspace] = useState<Workspace>();
@@ -250,6 +252,7 @@ const Layout = ({ children }: LayoutProps) => {
                       <RailButton
                         title="DMs"
                         icon={<Messages color="var(--primary)" />}
+                        onClick={() => workspace?.id && router.push(`/client/${workspace.id}/dm`)}
                       />
                       <RailButton
                         title="Activity"

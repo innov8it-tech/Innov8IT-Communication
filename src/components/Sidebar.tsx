@@ -6,6 +6,7 @@ import clsx from 'clsx';
 
 import AddChannelModal from './AddChannelModal';
 import DirectMessageModal from './DirectMessageModal';
+import DirectMessagePreview from './DirectMessagePreview';
 import { AppContext } from '../app/client/layout';
 import ArrowDropdown from './icons/ArrowDropdown';
 import CaretDown from './icons/CaretDown';
@@ -174,6 +175,38 @@ const Sidebar = ({ layoutWidth }: SidebarProps) => {
                 onClick={openCreateChannelModal}
               />
             )}
+          </div>
+          <div className="w-full flex min-h-0 flex-col">
+            <div className="h-7 -ml-1.5 flex items-center justify-between px-4 text-[15px] leading-7">
+              <div className="flex min-w-0 items-center">
+                <button className="hover:bg-hover-gray rounded-md">
+                  <ArrowDropdown color="var(--icon-gray)" />
+                </button>
+                <span className="truncate px-[5px] text-sidebar-gray font-medium">
+                  Direct messages
+                </span>
+              </div>
+              <button
+                type="button"
+                aria-label="Start a direct message"
+                onClick={() => setIsDirectMessageModalOpen(true)}
+                className="rounded-md p-1 text-sidebar-gray hover:bg-hover-gray hover:text-white"
+              >
+                <Plus size={16} color="var(--icon-gray)" />
+              </button>
+            </div>
+            <ChannelList
+              filters={{
+                type: 'messaging',
+                workspaceId: workspace.id,
+                isDirectMessage: true,
+                members: { $in: [user!.id] },
+              }}
+              Preview={DirectMessagePreview}
+              sort={{ last_message_at: -1 }}
+              LoadingIndicator={() => null}
+              lockChannelOrder
+            />
           </div>
           {/* Handle */}
           <div
