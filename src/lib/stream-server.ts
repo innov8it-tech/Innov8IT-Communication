@@ -67,7 +67,7 @@ export async function syncStreamChannels({
         : [];
       const channelMemberIds = isPublicChannel
         ? memberIds
-        : Array.from(new Set([...currentMemberIds, ownerId]));
+        : Array.from(new Set(currentMemberIds));
       const streamChannel = streamClient.channel('messaging', dbChannel.id, {
         members: channelMemberIds,
         name: dbChannel.name,

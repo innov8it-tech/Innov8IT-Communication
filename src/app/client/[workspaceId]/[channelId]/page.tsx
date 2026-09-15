@@ -20,6 +20,8 @@ import Message from '@/components/icons/Message';
 import MoreVert from '@/components/icons/MoreVert';
 import Pin from '@/components/icons/Pin';
 import Plus from '@/components/icons/Plus';
+import Modal from '@/components/Modal';
+import Spinner from '@/components/Spinner';
 import User from '@/components/icons/User';
 
 interface ChannelProps {
@@ -53,11 +55,94 @@ const Channel = ({ params }: ChannelProps) => {
   const [channelLoading, setChannelLoading] = useState(true);
   const [channelError, setChannelError] = useState('');
   const [isMembersModalOpen, setIsMembersModalOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [removeMemberModalOpen, setRemoveMemberModalOpen] = useState(false);
+  const [deleteChannelModalOpen, setDeleteChannelModalOpen] = useState(false);
+  const [selectedMemberId, setSelectedMemberId] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
   const [pageWidth, setPageWidth] = useState(0);
   const layoutRef = useRef<HTMLDivElement>(null);
   const canInvite = workspace?.ownerId === user?.id || workspace?.memberships?.some(
     (membership) => membership.userId === user?.id && membership.role === 'admin'
   );
+  const isPublicChannel =
+    channel?.name === 'general' || !Array.isArray(channel?.memberIds);
+  const channelMemberIds = isPublicChannel
+    ? workspace?.memberships.map((member) => member.userId) || []
+    : Array.isArray(channel?.memberIds)
+      ? channel.memberIds.filter((id): id is string => typeof id === 'string')
+      : [];
+  const channelMembers = workspace?.memberships.filter((member) =>
+    channelMemberIds.includes(member.userId)
+  ) || [];
+  const removableMembers = channelMembers.filter(
+    (member) => member.userId !== user?.id && member.userId !== workspace?.ownerId
+  );
+  const channelMemberCount = new Set(channelMemberIds).size;
+
+  const removeMember = async () => {
+    if (!selectedMemberId) return;
+    setActionLoading(true);
+    try {
+      const response = await fetch(
+        `/api/workspaces/${workspaceId}/channels/${channelId}/members`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            memberIds: channelMemberIds.filter((id) => id !== selectedMemberId),
+          }),
+        }
+      );
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Unable to remove member.');
+
+      setChannel(result.channel);
+      setWorkspace({
+        ...workspace,
+        channels: workspace.channels.map((item) =>
+          item.id === channelId ? result.channel : item
+        ),
+      });
+      if (chatChannel) await chatChannel.watch();
+      setSelectedMemberId('');
+      setRemoveMemberModalOpen(false);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Unable to remove member.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const deleteChannel = async () => {
+    setActionLoading(true);
+    try {
+      const response = await fetch(
+        `/api/workspaces/${workspaceId}/channels/${channelId}`,
+        { method: 'DELETE' }
+      );
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Unable to delete channel.');
+
+      const remainingChannels = workspace.channels.filter(
+        (item) => item.id !== channelId
+      );
+      const fallbackChannel =
+        remainingChannels.find((item) => item.name === 'general') || remainingChannels[0];
+      setWorkspace({ ...workspace, channels: remainingChannels });
+      setDeleteChannelModalOpen(false);
+      if (fallbackChannel) {
+        setChannel(fallbackChannel);
+        router.push(`/client/${workspaceId}/${fallbackChannel.id}`);
+      } else {
+        router.push(`/client/${workspaceId}`);
+      }
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Unable to delete channel.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (loading || !layoutRef.current) return;
@@ -203,10 +288,10 @@ const Channel = ({ params }: ChannelProps) => {
           >
             <User color="var(--icon-gray)" />
             <span className="pl-1 pr-2 text-[12.8px]">
-              {workspace.memberships.length}
+              {channelMemberCount}
             </span>
             </button>
-          {canInvite && (
+          {canInvite && !isPublicChannel && (
             <button
               onClick={() => setIsMembersModalOpen(true)}
               className="ml-2 flex h-7 items-center rounded-lg border border-[#797c814d] px-2 text-[12.8px] font-semibold text-[#e8e8e8b3] hover:bg-[#25272b] hover:text-white"
@@ -230,9 +315,42 @@ const Channel = ({ params }: ChannelProps) => {
               </button>
             </div>
           )}
-          <button className="group rounded-lg flex w-7 h-7 ml-2 items-center justify-center hover:bg-[#d1d2d30b]">
-            <MoreVert className="fill-[#e8e8e8b3] group-hover:fill-channel-gray" />
-          </button>
+          <div className="relative ml-2">
+            <button
+              type="button"
+              aria-label="Channel actions"
+              onClick={() => canInvite && setActionsOpen((open) => !open)}
+              className="group rounded-lg flex w-7 h-7 items-center justify-center hover:bg-[#d1d2d30b]"
+            >
+              <MoreVert className="fill-[#e8e8e8b3] group-hover:fill-channel-gray" />
+            </button>
+            {canInvite && actionsOpen && (
+              <div className="absolute right-0 top-9 z-50 w-52 rounded-lg border border-[#797c814d] bg-[#222529] p-1 shadow-xl">
+                <button
+                  type="button"
+                  disabled={isPublicChannel}
+                  onClick={() => {
+                    setActionsOpen(false);
+                    setRemoveMemberModalOpen(true);
+                  }}
+                  className="w-full rounded-md px-3 py-2 text-left text-sm text-white hover:bg-[#034697]/30 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Remove member
+                </button>
+                <button
+                  type="button"
+                  disabled={channel?.name === 'general'}
+                  onClick={() => {
+                    setActionsOpen(false);
+                    setDeleteChannelModalOpen(true);
+                  }}
+                  className="w-full rounded-md px-3 py-2 text-left text-sm text-red-300 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Delete channel
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       {/* Tab Bar */}
@@ -294,8 +412,90 @@ const Channel = ({ params }: ChannelProps) => {
           workspace={workspace}
           channel={channel}
           chatChannel={chatChannel}
+          allowEditing={!isPublicChannel}
         />
       )}
+      <Modal
+        open={removeMemberModalOpen}
+        onClose={() => setRemoveMemberModalOpen(false)}
+        loading={actionLoading}
+        title="Remove member from channel?"
+      >
+        <div className="flex flex-col gap-5">
+          <p className="text-sm text-channel-gray">
+            Select the person to remove from #{channel?.name}.
+          </p>
+          <select
+            value={selectedMemberId}
+            onChange={(event) => setSelectedMemberId(event.target.value)}
+            className="rounded-lg border border-[#797c8180] bg-[#1a1d21] px-3 py-2 text-sm text-white outline-none"
+          >
+            <option value="">Select a member</option>
+            {removableMembers.map((member) => (
+              <option key={member.userId} value={member.userId}>
+                {member.email}
+              </option>
+            ))}
+          </select>
+          {selectedMemberId && (
+            <p className="text-sm text-red-300">
+              Are you sure you want to remove{' '}
+              <strong>
+                {removableMembers.find((member) => member.userId === selectedMemberId)?.email}
+              </strong>{' '}
+              from #{channel?.name}?
+            </p>
+          )}
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setRemoveMemberModalOpen(false)}
+              disabled={actionLoading}
+              className="rounded-lg border border-[#797c8180] px-4 py-2 text-sm font-bold text-white"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={removeMember}
+              disabled={!selectedMemberId || actionLoading}
+              className="flex min-w-28 items-center justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+            >
+              {actionLoading ? <Spinner /> : 'Remove member'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+      <Modal
+        open={deleteChannelModalOpen}
+        onClose={() => setDeleteChannelModalOpen(false)}
+        loading={actionLoading}
+        title="Delete channel?"
+      >
+        <div className="flex flex-col gap-5">
+          <p className="text-sm text-red-300">
+            Are you sure you want to permanently delete #{channel?.name}? All messages in this channel will be removed.
+          </p>
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setDeleteChannelModalOpen(false)}
+              disabled={actionLoading}
+              className="rounded-lg border border-[#797c8180] px-4 py-2 text-sm font-bold text-white"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={deleteChannel}
+              disabled={actionLoading}
+              className="flex min-w-28 items-center justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+            >
+              {actionLoading ? <Spinner /> : 'Delete channel'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

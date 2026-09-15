@@ -3,7 +3,7 @@ import { auth, currentUser } from '@clerk/nextjs/server';
 
 import { generateChannelId } from '@/lib/utils';
 import prisma from '@/lib/prisma';
-import { getStreamServerClient } from '@/lib/stream-server';
+import { syncStreamChannels } from '@/lib/stream-server';
 
 export async function POST(
   request: Request,
@@ -108,28 +108,12 @@ export async function POST(
       },
     });
 
-    const streamClient = getStreamServerClient();
-    if (!streamClient) {
-      throw new Error(
-        'Stream is not configured. Set NEXT_PUBLIC_STREAM_API_KEY and STREAM_API_SECRET.'
-      );
-    }
-
-    await streamClient.upsertUsers(
-      workspaceMembers.map((member) => ({
-        id: member.userId,
-        name: member.email,
-        email: member.email,
-      }))
-    );
-    const streamChannel = streamClient.channel('messaging', newChannel.id, {
-      members: validMemberIds,
-      name: newChannel.name,
-      description: newChannel.description || undefined,
+    await syncStreamChannels({
       workspaceId,
-      created_by_id: userId,
+      ownerId: userId,
+      channels: [newChannel],
+      memberships: workspaceMembers,
     });
-    await streamChannel.create();
 
     return NextResponse.json(
       {
