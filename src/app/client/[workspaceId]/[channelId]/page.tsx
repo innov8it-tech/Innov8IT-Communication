@@ -123,7 +123,8 @@ const Channel = ({ params }: ChannelProps) => {
         setChatChannel(chatChannel);
       } catch (error) {
         console.error('Error loading channel:', error);
-        setChannelError('This channel could not be connected. Check your Stream configuration and try again.');
+        const message = error instanceof Error ? error.message : String(error);
+        setChannelError(`Stream channel connection failed: ${message}`);
       } finally {
         setChannelLoading(false);
       }
