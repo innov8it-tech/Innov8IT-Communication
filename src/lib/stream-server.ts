@@ -1,4 +1,5 @@
 import { Channel, Membership } from '@prisma/client';
+import { clerkClient } from '@clerk/nextjs/server';
 import { StreamChat } from 'stream-chat';
 
 export function getStreamServerClient() {
@@ -31,14 +32,32 @@ export async function syncStreamChannels({
 
   try {
     const memberIds = memberships.map((membership) => membership.userId);
-
-    await streamClient.upsertUsers(
-      memberships.map((membership) => ({
-        id: membership.userId,
-        name: membership.email,
-        email: membership.email,
-      }))
+    const clerk = await clerkClient();
+    const streamUsers = await Promise.all(
+      memberships.map(async (membership) => {
+        try {
+          const clerkUser = await clerk.users.getUser(membership.userId);
+          return {
+            id: membership.userId,
+            name:
+              clerkUser.fullName ||
+              clerkUser.primaryEmailAddress?.emailAddress ||
+              membership.email,
+            email: membership.email,
+            image: clerkUser.imageUrl,
+          };
+        } catch (error) {
+          console.error(`Unable to load Clerk profile for ${membership.userId}:`, error);
+          return {
+            id: membership.userId,
+            name: membership.email,
+            email: membership.email,
+          };
+        }
+      })
     );
+
+    await streamClient.upsertUsers(streamUsers);
 
     for (const dbChannel of channels) {
       const currentMemberIds = Array.isArray(dbChannel.memberIds)

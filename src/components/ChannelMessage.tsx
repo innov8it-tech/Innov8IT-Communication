@@ -103,11 +103,13 @@ const ChannelMessage = () => {
         <span className="w-fit h-fit inline-flex">
           <button className="w-9 h-9 shrink-0 inline-block">
             <span className="w-full h-full overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={message.user?.image}
-                alt="profile-image"
-                className="w-full h-full rounded-lg"
+              <Avatar
+                width={36}
+                borderRadius={8}
+                data={{
+                  name: message.user?.name || message.user?.id || '',
+                  image: message.user?.image,
+                }}
               />
             </span>
           </button>
