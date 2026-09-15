@@ -41,6 +41,13 @@ export async function POST(
       );
     }
 
+    if (name.trim().toLowerCase() === 'general') {
+      return NextResponse.json(
+        { error: 'The default general channel already exists and cannot be duplicated.' },
+        { status: 400 }
+      );
+    }
+
     const requestedMemberIds = Array.isArray(memberIds)
       ? Array.from(new Set(memberIds.filter((id): id is string => typeof id === 'string')))
       : [];

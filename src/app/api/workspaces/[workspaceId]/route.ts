@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 
 import prisma from '@/lib/prisma';
-import { syncStreamChannels } from '@/lib/stream-server';
+import { getStreamServerClient, syncStreamChannels } from '@/lib/stream-server';
 
 export async function GET(
   _: Request,
@@ -58,6 +58,43 @@ export async function GET(
         { error: 'Workspace not found' },
         { status: 404 }
       );
+    }
+
+    // Keep exactly one canonical default channel. The original channel is
+    // created without memberIds, while channels created later have an
+    // explicit member list. Preserve the original and remove duplicate
+    // `general` records from both Prisma and Stream.
+    const generalChannels = workspace.channels
+      .filter((candidate) => candidate.name.toLowerCase() === 'general')
+      .sort((left, right) => left.id.localeCompare(right.id));
+    const defaultGeneral =
+      generalChannels.find((candidate) => !Array.isArray(candidate.memberIds)) ||
+      generalChannels[0];
+    const duplicateGeneralChannels = defaultGeneral
+      ? generalChannels.filter((candidate) => candidate.id !== defaultGeneral.id)
+      : [];
+
+    if (duplicateGeneralChannels.length > 0) {
+      const streamClient = getStreamServerClient();
+      if (!streamClient) {
+        throw new Error(
+          'Stream is not configured. Set NEXT_PUBLIC_STREAM_API_KEY and STREAM_API_SECRET.'
+        );
+      }
+
+      for (const duplicateChannel of duplicateGeneralChannels) {
+        await streamClient
+          .channel('messaging', duplicateChannel.id)
+          .delete({ hard_delete: true });
+        await prisma.channel.delete({ where: { id: duplicateChannel.id } });
+      }
+
+      workspace = {
+        ...workspace,
+        channels: workspace.channels.filter(
+          (candidate) => !duplicateGeneralChannels.some((duplicate) => duplicate.id === candidate.id)
+        ),
+      };
     }
 
     await syncStreamChannels({
