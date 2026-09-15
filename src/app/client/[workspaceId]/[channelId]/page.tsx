@@ -132,10 +132,11 @@ const Channel = ({ params }: ChannelProps) => {
       setWorkspace({ ...workspace, channels: remainingChannels });
       setDeleteChannelModalOpen(false);
       if (fallbackChannel) {
-        setChannel(fallbackChannel);
-        router.push(`/client/${workspaceId}/${fallbackChannel.id}`);
+        // Fully reload the workspace so the deleted Stream channel is
+        // unmounted before the next channel is initialized.
+        window.location.assign(`/client/${workspaceId}/${fallbackChannel.id}`);
       } else {
-        router.push(`/client/${workspaceId}`);
+        window.location.assign(`/client/${workspaceId}`);
       }
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Unable to delete channel.');
