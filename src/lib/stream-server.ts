@@ -56,6 +56,14 @@ export async function syncStreamChannels({
       try {
         await streamChannel.create();
       } catch {
+        // The channel may already exist in Stream. In that case the create
+        // call does not update its existing membership list.
+      }
+
+      // Always reconcile members, including channels created before an
+      // invitation was accepted. This allows every workspace member to read
+      // the channel when they first open it.
+      if (channelMemberIds.length > 0) {
         await streamChannel.addMembers(channelMemberIds);
       }
     }
