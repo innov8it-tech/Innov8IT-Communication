@@ -11,7 +11,7 @@ import {
 import { syncStreamChannels } from '@/lib/stream-server';
 
 export async function POST(request: Request) {
-  const { userId, orgId } = await auth();
+  const { userId } = await auth();
 
   if (!userId) {
     return NextResponse.json(
@@ -57,7 +57,11 @@ export async function POST(request: Request) {
     }
 
     const clerk = await clerkClient();
-    const organizationId = orgId || (await clerk.organizations.createOrganization({
+
+    // Every application workspace gets its own Clerk organization. Reusing
+    // the currently active Clerk organization would link multiple workspaces
+    // to one organization and prevents each workspace from being isolated.
+    const organizationId = (await clerk.organizations.createOrganization({
       name: workspaceName,
       createdBy: userId,
     })).id;
