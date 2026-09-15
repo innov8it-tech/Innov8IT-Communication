@@ -47,9 +47,7 @@ const ChannelMembersModal = ({
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Unable to update members');
 
-      const currentStreamMembers = Object.keys(chatChannel.state.members || {});
-      const newMemberIds = memberIds.filter((id) => !currentStreamMembers.includes(id));
-      if (newMemberIds.length > 0) await chatChannel.addMembers(newMemberIds);
+      await chatChannel.watch();
       onClose();
     } catch (error) {
       console.error('Error updating channel members:', error);

@@ -159,7 +159,7 @@ const Sidebar = ({ layoutWidth }: SidebarProps) => {
               </button>
             </div>
             <ChannelList
-              filters={{ workspaceId: workspace.id }}
+              filters={{ workspaceId: workspace.id, members: { $in: [user!.id] } }}
               Preview={ChannelPreview}
               sort={{
                 created_at: 1,

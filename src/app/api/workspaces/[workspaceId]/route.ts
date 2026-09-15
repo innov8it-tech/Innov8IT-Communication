@@ -60,26 +60,12 @@ export async function GET(
       );
     }
 
-    const memberIds = await syncStreamChannels({
+    await syncStreamChannels({
       workspaceId,
       ownerId: workspace.ownerId,
       channels: workspace.channels,
       memberships: workspace.memberships,
     });
-
-    for (const dbChannel of workspace.channels) {
-      const currentMemberIds = Array.isArray(dbChannel.memberIds)
-        ? dbChannel.memberIds.filter((id): id is string => typeof id === 'string')
-        : [];
-      const channelMemberIds = Array.from(new Set([...currentMemberIds, ...memberIds]));
-
-      if (channelMemberIds.length !== currentMemberIds.length) {
-        await prisma.channel.update({
-          where: { id: dbChannel.id },
-          data: { memberIds: channelMemberIds },
-        });
-      }
-    }
 
     workspace = await prisma.workspace.findUnique({
       where: { id: workspaceId },
@@ -113,7 +99,24 @@ export async function GET(
       },
     });
 
-    return NextResponse.json({ workspace, otherWorkspaces }, { status: 200 });
+    const canViewChannel = (candidate: { name: string; memberIds: unknown }) =>
+      candidate.name === 'general' ||
+      !Array.isArray(candidate.memberIds) ||
+      candidate.memberIds.includes(userId);
+
+    return NextResponse.json(
+      {
+        workspace: {
+          ...workspace,
+          channels: workspace.channels.filter(canViewChannel),
+        },
+        otherWorkspaces: otherWorkspaces.map((otherWorkspace) => ({
+          ...otherWorkspace,
+          channels: otherWorkspace.channels.filter(canViewChannel),
+        })),
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error('Error fetching workspace:', error);
     const message = error instanceof Error ? error.message : 'Internal server error';

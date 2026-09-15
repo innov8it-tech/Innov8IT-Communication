@@ -12,7 +12,6 @@ import CaretDown from '@/components/icons/CaretDown';
 import ChannelChat from '@/components/ChannelChat';
 import ChannelLoading from '@/components/ChannelLoading';
 import ChannelMembersModal from '@/components/ChannelMembersModal';
-import InviteMemberModal from '@/components/InviteMemberModal';
 import Files from '@/components/icons/Files';
 import Hash from '@/components/icons/Hash';
 import Headphones from '@/components/icons/Headphones';
@@ -54,7 +53,6 @@ const Channel = ({ params }: ChannelProps) => {
   const [channelLoading, setChannelLoading] = useState(true);
   const [channelError, setChannelError] = useState('');
   const [isMembersModalOpen, setIsMembersModalOpen] = useState(false);
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [pageWidth, setPageWidth] = useState(0);
   const layoutRef = useRef<HTMLDivElement>(null);
   const canInvite = workspace?.ownerId === user?.id || workspace?.memberships?.some(
@@ -210,10 +208,10 @@ const Channel = ({ params }: ChannelProps) => {
             </button>
           {canInvite && (
             <button
-              onClick={() => setIsInviteModalOpen(true)}
+              onClick={() => setIsMembersModalOpen(true)}
               className="ml-2 flex h-7 items-center rounded-lg border border-[#797c814d] px-2 text-[12.8px] font-semibold text-[#e8e8e8b3] hover:bg-[#25272b] hover:text-white"
             >
-              Invite
+              Invite to channel
             </button>
           )}
           {channelCall && (
@@ -298,7 +296,6 @@ const Channel = ({ params }: ChannelProps) => {
           chatChannel={chatChannel}
         />
       )}
-      {canInvite && <InviteMemberModal open={isInviteModalOpen} onClose={() => setIsInviteModalOpen(false)} />}
     </div>
   );
 };

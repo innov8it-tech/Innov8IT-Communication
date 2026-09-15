@@ -60,10 +60,14 @@ export async function syncStreamChannels({
     await streamClient.upsertUsers(streamUsers);
 
     for (const dbChannel of channels) {
+      const isPublicChannel =
+        dbChannel.name === 'general' || !Array.isArray(dbChannel.memberIds);
       const currentMemberIds = Array.isArray(dbChannel.memberIds)
         ? dbChannel.memberIds.filter((id): id is string => typeof id === 'string')
         : [];
-      const channelMemberIds = Array.from(new Set([...currentMemberIds, ...memberIds]));
+      const channelMemberIds = isPublicChannel
+        ? memberIds
+        : Array.from(new Set([...currentMemberIds, ownerId]));
       const streamChannel = streamClient.channel('messaging', dbChannel.id, {
         members: channelMemberIds,
         name: dbChannel.name,

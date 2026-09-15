@@ -115,7 +115,7 @@ const AddChannelModal = ({ open, onClose }: AddChannelModalProps) => {
           maxLength={250}
         />
         <div className="flex flex-col gap-2">
-          <label className="text-[15px] font-semibold text-white">Add members <span className="text-[#9a9b9e] font-normal">(optional)</span></label>
+          <label className="text-[15px] font-semibold text-white">Add members <span className="text-[#9a9b9e] font-normal">(only selected members can access this channel)</span></label>
           <div className="max-h-40 overflow-y-auto rounded-lg border border-[#797c8180] p-2">
             {workspace.memberships.map((member) => {
               const checked = memberIds.includes(member.userId);

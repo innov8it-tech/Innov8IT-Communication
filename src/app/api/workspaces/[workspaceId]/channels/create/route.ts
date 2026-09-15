@@ -32,7 +32,7 @@ export async function POST(
     const userId = user!.id;
 
     const body = await request.json();
-    const { name, description, memberIds, isPublic = true } = body;
+    const { name, description, memberIds, isPublic = false } = body;
 
     if (!name || typeof name !== 'string' || name.trim() === '') {
       return NextResponse.json(
