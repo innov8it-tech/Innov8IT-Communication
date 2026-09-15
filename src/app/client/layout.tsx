@@ -84,6 +84,11 @@ const tokenProvider = async (userId: string) => {
     body: JSON.stringify({ userId: userId }),
   });
   const data = await response.json();
+
+  if (!response.ok || !data.token) {
+    throw new Error(data.error || `Stream token request failed (${response.status}).`);
+  }
+
   return data.token;
 };
 
@@ -98,6 +103,7 @@ const Layout = ({ children }: LayoutProps) => {
   const [chatClient, setChatClient] = useState<StreamChat>();
   const [videoClient, setVideoClient] = useState<StreamVideoClient>();
   const [channelCall, setChannelCall] = useState<Call>();
+  const [connectionError, setConnectionError] = useState('');
 
   useEffect(() => {
     const customProvider = async () => {
@@ -106,32 +112,67 @@ const Layout = ({ children }: LayoutProps) => {
     };
 
     const setUpChatAndVideo = async () => {
-      const chatClient = StreamChat.getInstance(API_KEY);
-      const clerkUser = user!;
-      const chatUser = {
-        id: clerkUser.id,
-        name: clerkUser.fullName!,
-        image: clerkUser.imageUrl,
-        custom: {
-          username: user?.username,
-        },
-      };
+      try {
+        if (!API_KEY) {
+          throw new Error('NEXT_PUBLIC_STREAM_API_KEY is missing from the deployed environment.');
+        }
 
-      if (!chatClient.user) {
-        await chatClient.connectUser(chatUser, customProvider);
+        const chatClient = StreamChat.getInstance(API_KEY);
+        const clerkUser = user!;
+        const chatUser = {
+          id: clerkUser.id,
+          name: clerkUser.fullName || clerkUser.primaryEmailAddress?.emailAddress || clerkUser.id,
+          image: clerkUser.imageUrl,
+          custom: {
+            username: user?.username,
+          },
+        };
+
+        if (!chatClient.user) {
+          await chatClient.connectUser(chatUser, customProvider);
+        }
+
+        setChatClient(chatClient);
+        const videoClient = StreamVideoClient.getOrCreateInstance({
+          apiKey: API_KEY,
+          user: chatUser,
+          tokenProvider: customProvider,
+        });
+        setVideoClient(videoClient);
+        setConnectionError('');
+      } catch (error) {
+        console.error('Unable to connect to Stream:', error);
+        setConnectionError(
+          error instanceof Error
+            ? error.message
+            : 'Unable to connect to Stream. Check the deployed Stream API key and secret.'
+        );
       }
-
-      setChatClient(chatClient);
-      const videoClient = StreamVideoClient.getOrCreateInstance({
-        apiKey: API_KEY,
-        user: chatUser,
-        tokenProvider: customProvider,
-      });
-      setVideoClient(videoClient);
     };
 
     if (user) setUpChatAndVideo();
   }, [user, videoClient, chatClient]);
+
+  if (connectionError) {
+    return (
+      <div className="client flex min-h-screen w-screen items-center justify-center bg-[#1a1d21] p-6 text-white">
+        <div className="max-w-xl rounded-xl border border-[#797c814d] bg-[#222529] p-6 shadow-xl">
+          <h1 className="mb-3 text-xl font-bold">Unable to connect to Stream</h1>
+          <p className="break-words text-sm text-[#e8e8e8b3]">{connectionError}</p>
+          <p className="mt-4 text-sm text-[#e8e8e8b3]">
+            Confirm that the API key and secret in Vercel belong to the same Stream app, then redeploy.
+          </p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-5 rounded-lg bg-[#1264a3] px-4 py-2 text-sm font-bold text-white hover:bg-[#0b4f85]"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!chatClient || !videoClient || !user)
     return (
