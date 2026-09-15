@@ -83,9 +83,19 @@ export async function GET(
       }
 
       for (const duplicateChannel of duplicateGeneralChannels) {
-        await streamClient
-          .channel('messaging', duplicateChannel.id)
-          .delete({ hard_delete: true });
+        try {
+          await streamClient
+            .channel('messaging', duplicateChannel.id)
+            .delete({ hard_delete: true });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          if (!/not found|does not exist/i.test(message)) {
+            throw error;
+          }
+          // The duplicate may already have been removed from Stream. The
+          // Prisma record can still be safely cleaned up.
+          console.warn(`Stream channel ${duplicateChannel.id} was already missing.`);
+        }
         await prisma.channel.delete({ where: { id: duplicateChannel.id } });
       }
 
