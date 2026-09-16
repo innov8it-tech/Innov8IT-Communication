@@ -19,10 +19,18 @@ export async function POST(
   }
 
   const { workspaceId } = await params;
-  const body = await request.json().catch(() => null) as { userId?: unknown } | null;
-  const recipientId = typeof body?.userId === 'string' ? body.userId : '';
+  const body = await request.json().catch(() => null) as {
+    userId?: unknown;
+    userIds?: unknown;
+  } | null;
+  const requestedUserIds = Array.isArray(body?.userIds)
+    ? body.userIds.filter((id): id is string => typeof id === 'string')
+    : typeof body?.userId === 'string'
+      ? [body.userId]
+      : [];
+  const recipientIds = Array.from(new Set(requestedUserIds));
 
-  if (!workspaceId || !recipientId || recipientId === userId) {
+  if (!workspaceId || recipientIds.length === 0 || recipientIds.includes(userId)) {
     return NextResponse.json({ error: 'A valid teammate is required.' }, { status: 400 });
   }
 
@@ -30,20 +38,29 @@ export async function POST(
     const memberships = await prisma.membership.findMany({
       where: {
         workspaceId,
-        userId: { in: [userId, recipientId] },
+        userId: { in: [userId, ...recipientIds] },
       },
     });
 
     const currentMember = memberships.find((membership) => membership.userId === userId);
-    const recipient = memberships.find((membership) => membership.userId === recipientId);
+    const recipients = recipientIds.map((recipientId) =>
+      memberships.find((membership) => membership.userId === recipientId)
+    );
 
     if (!currentMember) {
       return NextResponse.json({ error: 'You are not a member of this workspace.' }, { status: 403 });
     }
 
-    if (!recipient) {
-      return NextResponse.json({ error: 'That teammate is not a member of this workspace.' }, { status: 404 });
+    if (recipients.some((recipient) => !recipient)) {
+      return NextResponse.json(
+        { error: 'Every selected teammate must be a member of this workspace.' },
+        { status: 404 }
+      );
     }
+
+    const validRecipients = recipients.filter(
+      (recipient): recipient is NonNullable<typeof recipient> => Boolean(recipient)
+    );
 
     const streamClient = getStreamServerClient();
     if (!streamClient) {
@@ -55,7 +72,7 @@ export async function POST(
 
     const clerk = await clerkClient();
     const streamUsers = await Promise.all(
-      [currentMember, recipient].map(async (membership) => {
+      [currentMember, ...validRecipients].map(async (membership) => {
         try {
           const clerkUser = await clerk.users.getUser(membership.userId);
           return {
@@ -76,18 +93,22 @@ export async function POST(
 
     await streamClient.upsertUsers(streamUsers);
 
-    const memberIds = [userId, recipientId].sort();
+    const memberIds = [userId, ...recipientIds].sort();
     // Clerk user IDs make a channel ID longer than Stream's channel ID limit.
-    // Hash the sorted pair so both users always resolve to the same short ID.
+    // Hash the sorted member set so the same people always resolve to the same short ID.
     const channelId = `dm-${createHash('sha256')
       .update(memberIds.join(':'))
       .digest('hex')
       .slice(0, 40)}`;
     const streamChannel = streamClient.channel('messaging', channelId, {
       members: memberIds,
-      name: recipient.email,
+      name:
+        validRecipients.length === 1
+          ? validRecipients[0].email
+          : validRecipients.map((recipient) => recipient.email).join(', '),
       workspaceId,
       isDirectMessage: true,
+      isGroupDirectMessage: validRecipients.length > 1,
       created_by_id: userId,
     });
 
@@ -106,7 +127,8 @@ export async function POST(
 
     return NextResponse.json({
       channelId,
-      recipientEmail: recipient.email,
+      recipientEmail: validRecipients.length === 1 ? validRecipients[0].email : undefined,
+      isGroup: validRecipients.length > 1,
     });
   } catch (error) {
     console.error('Error creating direct message:', error);
