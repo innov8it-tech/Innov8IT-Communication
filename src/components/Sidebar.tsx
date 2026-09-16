@@ -2,6 +2,7 @@
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { ChannelList } from 'stream-chat-react';
+import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 
 import AddChannelModal from './AddChannelModal';
@@ -27,6 +28,7 @@ type SidebarProps = {
 
 const Sidebar = ({ layoutWidth }: SidebarProps) => {
   const { user } = useUser();
+  const pathname = usePathname();
   const { loading, workspace } = useContext(AppContext);
 
   const [width, setWidth] = useState<number>(() => {
@@ -160,11 +162,15 @@ const Sidebar = ({ layoutWidth }: SidebarProps) => {
               </button>
             </div>
             <ChannelList
+              key={`channels-${workspace.id}-${pathname}`}
               filters={{
+                type: 'messaging',
                 workspaceId: workspace.id,
                 members: { $in: [user!.id] },
-                isDirectMessage: { $ne: true },
               }}
+              channelRenderFilterFn={(channels) =>
+                channels.filter((channel) => channel.data?.isDirectMessage !== true)
+              }
               Preview={ChannelPreview}
               sort={{
                 created_at: 1,
@@ -200,12 +206,15 @@ const Sidebar = ({ layoutWidth }: SidebarProps) => {
               </button>
             </div>
             <ChannelList
+              key={`direct-messages-${workspace.id}-${pathname}`}
               filters={{
                 type: 'messaging',
                 workspaceId: workspace.id,
-                isDirectMessage: true,
                 members: { $in: [user!.id] },
               }}
+              channelRenderFilterFn={(channels) =>
+                channels.filter((channel) => channel.data?.isDirectMessage === true)
+              }
               Preview={DirectMessagePreview}
               sort={{ last_message_at: -1 }}
               LoadingIndicator={() => null}
