@@ -28,7 +28,7 @@ const DirectMessageModal = ({ open, onClose }: DirectMessageModalProps) => {
         {workspace.memberships
           .filter((member) => member.userId !== user?.id)
           .map((member) => (
-            <button key={member.userId} onClick={() => startDirectMessage(member.userId)} className="flex items-center gap-3 rounded-lg border border-[#797c8180] px-3 py-3 text-left text-sm text-white hover:border-[#e2a025] hover:bg-[#034697]/30">
+            <button type="button" key={member.userId} onClick={() => startDirectMessage(member.userId)} className="flex items-center gap-3 rounded-lg border border-[#797c8180] px-3 py-3 text-left text-sm text-white hover:border-[#e2a025] hover:bg-[#034697]/30">
               <Avatar width={36} borderRadius={8} data={{ name: member.email, image: null }} />
               <span>{member.email}</span>
             </button>
