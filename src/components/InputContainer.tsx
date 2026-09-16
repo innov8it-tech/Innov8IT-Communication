@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { useUser } from '@clerk/nextjs';
 import clsx from 'clsx';
 import {
   Editable,
@@ -23,6 +24,7 @@ import {
   Element as SlateElement,
   Text,
 } from 'slate';
+import { UserResponse } from 'stream-chat';
 import isHotkey from 'is-hotkey';
 import { withHistory } from 'slate-history';
 import {
@@ -110,6 +112,7 @@ const initialValue: Descendant[] = [
 ];
 
 const InputContainer = () => {
+  const { user } = useUser();
   const { workspace } = useContext(AppContext);
   const { channel } = useChannelStateContext();
   const { sendMessage } = useChannelActionContext();
@@ -118,6 +121,8 @@ const InputContainer = () => {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [filesInfo, setFilesInfo] = useState<FileInfo[]>([]);
+  const [mentionMenuOpen, setMentionMenuOpen] = useState(false);
+  const [mentionedUsers, setMentionedUsers] = useState<UserResponse[]>([]);
 
   const renderElement = useCallback(
     (props: ElementProps) => <Element {...props} />,
@@ -263,10 +268,19 @@ const InputContainer = () => {
   const handleSubmit = async () => {
     const text = serializeToMarkdown(editor.children as Descendant[]);
     if (text || attachments.length > 0) {
+      const actualMentionedUsers = mentionedUsers.filter(
+        (mentionedUser) =>
+          text.includes(`@${mentionedUser.id}`) ||
+          Boolean(mentionedUser.name && text.includes(`@${mentionedUser.name}`))
+      );
+
       sendMessage({
         text,
         attachments,
+        mentioned_users: actualMentionedUsers,
       });
+      setMentionedUsers([]);
+      setMentionMenuOpen(false);
       setFilesInfo([]);
       removeAttachments(attachments.map((a) => a.localMetadata.id));
 
@@ -275,6 +289,27 @@ const InputContainer = () => {
       editor.history = { redos: [], undos: [] };
       editor.children = initialValue;
     }
+  };
+
+  const mentionableUsers = useMemo(
+    () =>
+      Object.values(channel.state.members || {})
+        .map((member) => member.user)
+        .filter(
+          (member): member is UserResponse => Boolean(member && member.id !== user?.id)
+        ),
+    [channel.state.members, user?.id]
+  );
+
+  const insertMention = (mentionedUser: UserResponse) => {
+    const displayName = mentionedUser.name || mentionedUser.id;
+    Transforms.insertText(editor, `@${displayName} `);
+    setMentionedUsers((current) =>
+      current.some((member) => member.id === mentionedUser.id)
+        ? current
+        : [...current, mentionedUser]
+    );
+    setMentionMenuOpen(false);
   };
 
   return (
@@ -447,11 +482,48 @@ const InputContainer = () => {
                   Transforms.insertText(editor, e.native);
                 }}
               />
-              <Button
-                format="mention"
-                className="rounded hover:bg-[#d1d2d30b] [&_path]:hover:fill-channel-gray"
-                icon={<Mentions color="var(--icon-gray)" />}
-              />
+              <div className="relative">
+                <button
+                  type="button"
+                  aria-label="Mention a teammate"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => setMentionMenuOpen((open) => !open)}
+                  className="w-7 h-7 p-0.5 m-0.5 inline-flex items-center justify-center rounded hover:bg-[#d1d2d30b] [&_path]:hover:fill-channel-gray"
+                >
+                  <Mentions color="var(--icon-gray)" />
+                </button>
+                {mentionMenuOpen && (
+                  <div className="absolute bottom-9 left-0 z-50 max-h-64 w-72 overflow-y-auto rounded-lg border border-[#797c814d] bg-[#222529] p-1 shadow-xl">
+                    <p className="px-3 py-2 text-xs font-semibold text-[#a6a8bd]">Mention a teammate</p>
+                    {mentionableUsers.length === 0 ? (
+                      <p className="px-3 py-2 text-sm text-[#a6a8bd]">No teammates available in this conversation.</p>
+                    ) : (
+                      mentionableUsers.map((mentionedUser) => (
+                        <button
+                          type="button"
+                          key={mentionedUser.id}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => insertMention(mentionedUser)}
+                          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-white hover:bg-[#034697]/30"
+                        >
+                          <Avatar
+                            width={24}
+                            borderRadius={6}
+                            data={{
+                              name: mentionedUser.name || mentionedUser.id,
+                              image:
+                                typeof mentionedUser.image === 'string'
+                                  ? mentionedUser.image
+                                  : null,
+                            }}
+                          />
+                          <span className="min-w-0 truncate">{mentionedUser.name || mentionedUser.id}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
               <div className="hidden sm:block separator h-5 w-[1px] mx-1.5 my-0.5 self-center flex-shrink-0 bg-[#e8e8e821]" />
               <Button
                 format="none"
