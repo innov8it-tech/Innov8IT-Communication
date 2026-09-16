@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
+import { createHash } from 'crypto';
 
 import prisma from '@/lib/prisma';
 import { getStreamServerClient } from '@/lib/stream-server';
@@ -76,7 +77,12 @@ export async function POST(
     await streamClient.upsertUsers(streamUsers);
 
     const memberIds = [userId, recipientId].sort();
-    const channelId = `dm-${memberIds.join('-')}`;
+    // Clerk user IDs make a channel ID longer than Stream's channel ID limit.
+    // Hash the sorted pair so both users always resolve to the same short ID.
+    const channelId = `dm-${createHash('sha256')
+      .update(memberIds.join(':'))
+      .digest('hex')
+      .slice(0, 40)}`;
     const streamChannel = streamClient.channel('messaging', channelId, {
       members: memberIds,
       name: recipient.email,
@@ -87,7 +93,11 @@ export async function POST(
 
     try {
       await streamChannel.create();
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/already exists|duplicate|channel.*exist/i.test(message)) {
+        throw error;
+      }
       // The stable two-user channel may already exist. Its membership is
       // reconciled below so either teammate can open it at any time.
     }
