@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom';
+import { useEffect, useState } from 'react';
 import { Channel as ChannelType } from 'stream-chat';
 import {
   Channel,
@@ -18,7 +19,11 @@ interface ChannelChatProps {
 }
 
 const ChannelChat = ({ channel }: ChannelChatProps) => {
-  const inputContainer = document.getElementById('message-input');
+  const [inputContainer, setInputContainer] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setInputContainer(document.getElementById('message-input'));
+  }, []);
 
   return (
     <div className="w-full h-full">
